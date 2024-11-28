@@ -87,10 +87,7 @@ module slave_control(clk, rst_n, request, ack, data_in, notice, valid, data);
             end
             state_wait_data: begin
                 next_state = (valid == 1)? state_wait_rqst : state_wait_data;
-                next_notice = 1'b0;
-                next_ack = (valid == 1)? 1'b1 : 1'b0;
-                next_data = (valid == 1)? data_in : data;
-                next_start = 1'b0;
+                
             end
         endcase
     end
