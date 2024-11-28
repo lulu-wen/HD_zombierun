@@ -93,7 +93,6 @@ module slave_control(clk, rst_n, request, ack, data_in, notice, valid, data);
                 next_start = 1'b0;
             end
             default: begin 
-                next_start = 1'b0;
             end
         endcase
     end
