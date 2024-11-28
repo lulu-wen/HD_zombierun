@@ -92,8 +92,6 @@ module slave_control(clk, rst_n, request, ack, data_in, notice, valid, data);
                 next_data = (valid == 1)? data_in : data;
                 next_start = 1'b0;
             end
-            default: begin 
-            end
         endcase
     end
 endmodule
