@@ -1,40 +1,21 @@
-`timescale 1ns / 1ps
+module mem_addr_gen(
+   input clk,
+   input rst,
+   input [9:0] h_cnt,
+   input [9:0] v_cnt,
+   output [16:0] pixel_addr
+);
+   reg [8:0] position;  // 使用 9 位來支援橫向滾動的最大範圍
 
-module vga_num(
-input wire clk,
-input wire enable,
-input wire [15:0] nums,
-output wire [15:0] addr,
-output wire [15:0] dina
-    );
-
-    reg [3:0] num;
-	wire [2:0] num_row, num_col;
-	reg [2:0] writing_digit;
-	reg [2:0] writing_digit_next;
-
-    always @ (posedge clk)
-    begin
-    if (enable) begin
-        case (writing_digit_next)
-            3'b000: num <= (nums / 1000) % 10;
-            3'b001: num <= (nums / 100) % 10;
-            3'b010: num <= (nums / 10) % 10;
-            3'b011: num <= nums % 10; 
-        endcase
-        
-        writing_digit <= writing_digit_next;
-        if (writing_digit == 3)
-            writing_digit_next <= 0;
-        else
-            writing_digit_next <= writing_digit + 1;
-        end
-    end
-
-    assign num_col = num % 8;
-    assign num_row = num / 8;
-    assign dina = {3'b100, num_row, num_col};
-    assign addr = writing_digit + 17;    
-
-            
+   // 將水平位置偏移應用於 h_cnt，模擬橫向滾動
+   assign pixel_addr = (((h_cnt >> 1) + position) % 320 + 320 * (v_cnt >> 1)) % 76800; // 320*240
+   
+   always @(posedge clk or posedge rst) begin
+      if (rst)
+          position <= 0; // 復位時，重置位置
+      else if (position < 319) // 限制 position 的範圍在一行內
+          position <= position + 1; // 每時鐘周期右移一像素
+      else
+          position <= 0; // 滾動到最右邊時重置
+   end
 endmodule
