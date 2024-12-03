@@ -28,7 +28,7 @@ module background_engine(
 
     bg_rom bg_rom(.clk(clk), .video_on(video_on), .x(rom_x), .y(rom_y), .color(rom_data));
 
-    always @ * begin
+    always @(*) begin
       ram_addr = `POS_X + `POS_Y  * TILE_COLS;
       if (`X_FILP == 0)
         rom_x = `TILE_COL * TILE_WIDTH + ((x + x_offset) % TILE_WIDTH);

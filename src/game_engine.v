@@ -11,7 +11,7 @@ module game_engine(
     output reg bg_wea = 0,
     output wire [31:0] obj_ram_data,
     output wire [31:0] bg_ram_data
-);
+); 
     // Multiplexers
         reg [15:0] bam_addr [4:0];
         reg [15:0] bam_data [4:0];
@@ -41,6 +41,12 @@ module game_engine(
         reg [31:0] coin_animate_counter;
         reg [1:0] coin_frame;
         reg coin_eaten;
+
+    // 地板
+        reg [15:0] floor_x = 0;
+        reg [15:0] floor_y = 25; // 固定地板位置 -> 400
+        reg [15:0] floor_rows = 3;
+        reg [15:0] floor_y_start = 27; // 地板起始行
 
     // Mario
         wire wlk;
@@ -72,7 +78,7 @@ module game_engine(
         score <= 0;
         game_over <= 0;
         scroll_delay <= 1_000_000; 
-        pipe_pos_x[0] <= 39;
+       /* pipe_pos_x[0] <= 39;
         pipe_up_end[0] <= 10;
         pipe_gap_end[0] <= 22;
         pipe_y[0] <= 2;
@@ -86,7 +92,7 @@ module game_engine(
         pipe_up_end[2] <= 14;
         pipe_gap_end[2] <= 24;
         pipe_y[2] <= 2;
-        pipe_x[2] <= 39;
+        pipe_x[2] <= 39;*/
     end
     
     always @ (posedge clk) begin
@@ -95,8 +101,9 @@ module game_engine(
         score <= 0;
         bg_wea <= 0;
         game_over <= 0;
-        scroll_delay <= 1_000_000; 
-        pipe_pos_x[0] <= 39;
+        scroll_delay <= 1_000_000;
+        floor_x = 0; 
+       /* pipe_pos_x[0] <= 39;
         pipe_up_end[0] <= 10;
         pipe_gap_end[0] <= 22;
         pipe_y[0] <= 1;
@@ -110,9 +117,14 @@ module game_engine(
         pipe_up_end[2] <= 3;
         pipe_gap_end[2] <= 28;
         pipe_y[2] <= 1;
-        pipe_x[2] <= 39;
+        pipe_x[2] <= 39;*/
      end
-
+    /*
+        `define TILE_COL ram_data[2:0]
+    `define TILE_ROW ram_data[5:3]
+    `define X_FILP ram_data[6:6]
+    `define Y_FLIP ram_data[7:7]
+    `define ENABLE ram_data[8:8]*/
      if (game_on) begin
         if (clear_bg) begin
             bg_wea <= 1;
@@ -122,7 +134,7 @@ module game_engine(
             bam_data[2] <= 0;
         end
       else begin
-              if (bam_counter < 2050) begin bam_select <= 1; bam_counter <= bam_counter + 1; bg_wea <= pipe_y[pipe_count] >= 2 ;end
+              if (bam_counter < 2050) begin bam_select <= 1; bam_counter <= bam_counter + 1; bg_wea <= 1 ;end
               else if (bam_counter >= 2050 & bam_counter < 2064) begin bam_select <= 0; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else if (bam_counter >= 2064 & bam_counter < 2100) begin bam_select <= 3; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else if (bam_counter >= 2100 & bam_counter < 2300) begin bam_select <= 4; bam_counter <= bam_counter + 1; bg_wea <= 1; end
@@ -133,7 +145,7 @@ module game_engine(
               bam_addr[4] <= text_addr;
               bam_data[4] <= text_data;
               
-              if (pipe_y[pipe_count] < pipe_up_end[pipe_count] | pipe_y[pipe_count] > pipe_gap_end[pipe_count]) 
+              /*if (pipe_y[pipe_count] < pipe_up_end[pipe_count] | pipe_y[pipe_count] > pipe_gap_end[pipe_count]) 
               begin
                   pipe_data_col <= 3'd2 + pipe_x[pipe_count] - pipe_pos_x[pipe_count];
                   pipe_data_props <= 3'b100;
@@ -154,7 +166,49 @@ module game_engine(
                   bg_wea <= 0;
                   pipe_data_props <= 3'b000;
               end
-            
+              */
+                // 處理第一行
+                for (i = 0; i < TILE_COLS; i = i + 1) begin
+                    bam_addr[1] <= i + (floor_y_start) * TILE_COLS;
+
+                    // 第一行的處理
+                    if (i == 0) begin
+                        bam_data[1] <= {1'b1, 2'b01, 3'd6, 3'd1}; // 最左邊的地板屬性
+                    end else if (i == TILE_COLS - 1) begin
+                        bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd1}; // 最右邊的地板屬性
+                    end else begin
+                        bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd0}; // 其他位置的地板屬性
+                    end
+
+                    bg_wea <= 1;
+                end
+
+                // 處理第二行
+                for (i = 0; i < TILE_COLS; i = i + 1) begin
+                    bam_addr[1] <= i + (floor_y_start + 1) * TILE_COLS;
+
+                    // 第二行及以下的地板屬性
+                    bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd3};
+
+                    bg_wea <= 1;
+                end
+
+                // 處理最後一行
+                for (i = 0; i < TILE_COLS; i = i + 1) begin
+                    bam_addr[1] <= i + (floor_y_start + 1) * TILE_COLS;
+
+                    // 第三行及以下的地板屬性
+                    bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd3};
+
+                    bg_wea <= 1;
+                end
+              /*if (floor_y == y / TILE_HEIGHT) begin
+                    bam_addr[1] <= floor_x + floor_y * TILE_COLS;
+                    bam_data[1] <= {1'b1, 2'b00, 3'd7, 3'd1}; // 設定地板圖塊的屬性
+                    bam_select <= 5;
+                    bg_wea <= 1;
+              end*/ // 這個是只有兩個地板會動的
+              /*
               if (pipe_y[pipe_count] == 39) begin
                   pipe_y[pipe_count] <= 1;
                   if (pipe_x[pipe_count] != pipe_pos_x[pipe_count] + 1)
@@ -166,9 +220,9 @@ module game_engine(
 
               end else
                   pipe_y[pipe_count] <= pipe_y[pipe_count] + 1;
-              
-            bam_addr[1] <= pipe_x[pipe_count] + pipe_y[pipe_count] * TILE_COLS;
-            bam_data[1] <= {pipe_data_props, 3'd5, pipe_data_col};
+              */
+            /*bam_addr[1] <= pipe_x[pipe_count] + pipe_y[pipe_count] * TILE_COLS;
+            bam_data[1] <= {pipe_data_props, 3'd5, pipe_data_col};*/
             // coin 
             coin_data_col <= coin_frame + 4;
             bam_addr[3] <= coin_x + coin_y * TILE_COLS;
@@ -184,8 +238,12 @@ module game_engine(
             coin_x <= 39 - coin_y_osc % 6;
             coin_y <= coin_y_osc % (TILE_ROWS - 2) + 2;
         end
+        if (floor_x > 0)
+            floor_x <= floor_x - 1;
+        else
+            floor_x <= TILE_COLS - 1; // 循環滾動
         for (i = 0; i < 3; i = i + 1)
-        if (pipe_pos_x[i] > 0)  begin
+        /*if (pipe_pos_x[i] > 0)  begin
             pipe_pos_x[i] <= pipe_pos_x[i] - 1;
             pipe_x[i] <= pipe_pos_x[i] - 1;
             pipe_y[i] <= 1;
@@ -201,7 +259,7 @@ module game_engine(
             pipe_up_end[i] <= up_end_osc + 6;
             pipe_gap_end[i] <= up_end_osc + 14 + gap_end_osc;
             pipe_y[i] <= 1; 
-        end
+        end*/
         clear_bg <= 1; bam_addr[2] <= 0;
         end
         real_bg_x_offset <= real_bg_x_offset + 1;
@@ -214,7 +272,7 @@ module game_engine(
       
       if (((mario_x + 28 + real_bg_x_offset) >= (pipe_pos_x[pipe_count] * TILE_WIDTH) & mario_x + real_bg_x_offset < (pipe_pos_x[pipe_count] + 2) * TILE_WIDTH 
           & ((mario_y < (pipe_up_end[pipe_count] + 1) * TILE_HEIGHT) | (mario_y + 28 > pipe_gap_end[pipe_count] * TILE_HEIGHT))) | mario_y > 480)
-        game_over <= 1;
+        game_over <= 0;
 
         if ((mario_x + 28 + real_bg_x_offset) >= (coin_x * TILE_WIDTH) & mario_x + real_bg_x_offset < (coin_x + 1) * TILE_WIDTH 
           & (mario_y >= (coin_y - 1) * TILE_HEIGHT) & (mario_y <= (coin_y + 1) * TILE_HEIGHT)

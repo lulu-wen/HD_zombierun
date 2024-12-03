@@ -4,7 +4,7 @@ module mario(
     input wire up, down, left, right, 
     input wire game_over,
     output reg [9:0] pos_x_reg = 80,
-    output reg [9:0] pos_y_reg = 64,
+    output reg [9:0] pos_y_reg = 350,  // 設定地板高度為100
     output wire [31:0] dina,
     output wire [2:0] addr
 );
@@ -28,18 +28,20 @@ module mario(
     reg [19:0] jump_t_reg, jump_t_next; 
     reg [19:0] start_reg_y, start_next_y; 
     reg [25:0] extra_up_reg, extra_up_next;    
-   
+
     // signals for up-button positive edge signal
     reg [7:0] up_reg;
+    reg is_jumping;
     wire up_edge;
     assign up_edge = ~(&up_reg) & up;
     parameter MIN_Y = 32;
 
-    always @(posedge clk)
-    begin
-    if (reset) begin
-            pos_y_reg <= 64;
+    always @(posedge clk) begin
+        if (reset) begin
+            is_jumping <= 1'b0;
+            pos_y_reg <= 350;  // 初始高度設定為250 (地面高度)
         end else begin
+            is_jumping <= is_jumping;
             state_reg_y  <= state_next_y;
             jump_t_reg   <= jump_t_next;
             start_reg_y  <= start_next_y;
@@ -49,7 +51,7 @@ module mario(
         end
     end
 
-    always @ * begin
+    always @(*) begin
         if (game_over) begin
             rom_row <= 1;
             rom_col <= 0;
@@ -63,15 +65,16 @@ module mario(
         end
     end       
 
-    always @ * begin
+    always @(*) begin
         state_next_y  = state_reg_y;
         jump_t_next   = jump_t_reg;
         start_next_y  = start_reg_y;
         extra_up_next = extra_up_reg;
         pos_y_next    = pos_y_reg;
 
-        if(up_edge & ~game_over) begin
-            state_next_y = jump_up;             
+        if(up_edge && !game_over && !is_jumping) begin
+            state_next_y = jump_up;
+            is_jumping <= 1'b1;             
             start_next_y = TIME_START_Y;        
             jump_t_next = TIME_START_Y;         
             extra_up_next = 0;                  
@@ -79,52 +82,42 @@ module mario(
 
         case (state_reg_y)
             jump_up: begin
-
                 if(jump_t_reg > 0) begin
                     jump_t_next = jump_t_reg - 1; 
                 end
-                       
                 if(jump_t_reg == 0) begin
-                        
-    		        if( pos_y_next > MIN_Y)                 	
-    			        pos_y_next = pos_y_reg - 1; 
-    						
-        		    if(start_reg_y <= TIME_MAX_Y) begin
-                            start_next_y = start_reg_y + TIME_STEP_Y; 
-                            jump_t_next = start_reg_y + TIME_STEP_Y;  
-                        end
-                    else                                          
-                        begin
-                            state_next_y = jump_down;
-                            start_next_y = TIME_MAX_Y;                
-                            jump_t_next  = TIME_MAX_Y;                
-                        end
-                    end
-
-                end
-
-            jump_down: begin                 
-                if(jump_t_reg > 0)                                    
-                    begin
-                        jump_t_next = jump_t_reg - 1;                     
-                    end
-                if(jump_t_reg == 0)                                   
-                    begin
-                        begin
-                        if (pos_y_next <= 480)
-                            pos_y_next = pos_y_reg + 1;                       
-                        if(start_reg_y > TIME_TERM_Y)                 
-                            begin
-                                start_next_y = start_reg_y - TIME_STEP_Y; 
-                                jump_t_next = start_reg_y - TIME_STEP_Y;  
-                            end
-                        else
-                            begin  
-                                jump_t_next = TIME_TERM_Y;
-                            end
-                        end                 
+                    if( pos_y_next > MIN_Y)                 
+                        pos_y_next = pos_y_reg - 1;  // 上升過程中改變pos_y_reg
+                    if(start_reg_y <= TIME_MAX_Y) begin
+                        start_next_y = start_reg_y + TIME_STEP_Y; 
+                        jump_t_next = start_reg_y + TIME_STEP_Y;  
+                    end else begin
+                        state_next_y = jump_down;
+                        start_next_y = TIME_MAX_Y;                
+                        jump_t_next  = TIME_MAX_Y;                
                     end
                 end
-            endcase
-        end
+            end
+            jump_down: begin
+                if(jump_t_reg > 0) begin
+                    jump_t_next = jump_t_reg - 1; 
+                end
+                if(jump_t_reg == 0) begin
+                    if (pos_y_next > 350) begin
+                        pos_y_next = 350;  // 當降落回到地面時，強制設置為100
+                        is_jumping <= 1'b0;
+                    end else if (pos_y_next <= 480) begin
+                        pos_y_next = pos_y_reg + 1; // 控制馬力歐的下降
+                        is_jumping <= is_jumping;
+                    end
+                    if(start_reg_y > TIME_TERM_Y) begin
+                        start_next_y = start_reg_y - TIME_STEP_Y; 
+                        jump_t_next = start_reg_y - TIME_STEP_Y;  
+                    end else begin  
+                        jump_t_next = TIME_TERM_Y;
+                    end
+                end
+            end
+        endcase
+    end
 endmodule
