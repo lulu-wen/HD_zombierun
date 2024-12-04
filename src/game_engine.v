@@ -50,9 +50,23 @@ module game_engine(
 
     // Mario
         wire wlk;
-        wire [9:0] mario_x, mario_y;
+        wire [9:0] mario_x[4:0], mario_y[4:0];
+        wire [9:0] mario_x_shift[4:0];
+        assign mario_x_shift[0] = 0;
+        assign mario_x_shift[1] = 10;
+        assign mario_x_shift[2] = 20;
+        assign mario_x_shift[3] = 30;
+        assign mario_x_shift[4] = 40;
         reg game_over = 0;
-        mario mario(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x), .pos_y_reg(mario_y),
+        mario mario1(.pos_x_shift(mario_x_shift[0]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[0]), .pos_y_reg(mario_y[0]),
+                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
+        mario mario2(.pos_x_shift(mario_x_shift[1]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[1]), .pos_y_reg(mario_y[1]),
+                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
+        mario mario3(.pos_x_shift(mario_x_shift[2]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[2]), .pos_y_reg(mario_y[2]),
+                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
+        mario mario4(.pos_x_shift(mario_x_shift[3]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[3]), .pos_y_reg(mario_y[3]),
+                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
+        mario mario5(.pos_x_shift(mario_x_shift[4]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[4]), .pos_y_reg(mario_y[4]),
                     .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
 
     // game status
