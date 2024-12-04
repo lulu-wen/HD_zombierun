@@ -1,9 +1,10 @@
 `timescale 1ns / 1ps
 module mario(
+    input [9:0] pos_x_shift,
     input wire clk, reset,
     input wire up, down, left, right, 
     input wire game_over,
-    output reg [9:0] pos_x_reg = 80,
+    output reg [9:0] pos_x_reg,
     output reg [9:0] pos_y_reg = 350,  // 設定地板高度為100
     output wire [31:0] dina,
     output wire [2:0] addr
@@ -22,7 +23,10 @@ module mario(
     
     localparam [2:0]     jump_down    = 3'b000, 
                          jump_up  = 3'b100;
-   
+    
+    localparam COOL_DOWN_TIME = 500000; // 冷卻時間（以時脈週期數表示）
+    reg [19:0] cool_down_reg, cool_down_next; // 冷卻計時器
+
     reg [2:0] state_reg_y, state_next_y;  
    
     reg [19:0] jump_t_reg, jump_t_next; 
@@ -40,6 +44,8 @@ module mario(
         if (reset) begin
             is_jumping <= 1'b0;
             pos_y_reg <= 350;  // 初始高度設定為250 (地面高度)
+            pos_x_reg <= 80 - pos_x_shift;
+            cool_down_reg <= 0;
         end else begin
             is_jumping <= is_jumping;
             state_reg_y  <= state_next_y;
@@ -47,6 +53,7 @@ module mario(
             start_reg_y  <= start_next_y;
             extra_up_reg <= extra_up_next;
             pos_y_reg    <= pos_y_next;
+            cool_down_reg <= cool_down_next;
             up_reg     <= {up_reg[6:0], up};
         end
     end
@@ -71,13 +78,19 @@ module mario(
         start_next_y  = start_reg_y;
         extra_up_next = extra_up_reg;
         pos_y_next    = pos_y_reg;
+        cool_down_next = cool_down_reg; 
 
-        if(up_edge && !game_over && !is_jumping) begin
+        if (cool_down_reg > 0) begin
+        cool_down_next = cool_down_reg - 1; // 冷卻計時器遞減
+        end
+
+        if(up_edge && !game_over && !is_jumping && !cool_down_reg) begin
             state_next_y = jump_up;
             is_jumping <= 1'b1;             
             start_next_y = TIME_START_Y;        
             jump_t_next = TIME_START_Y;         
-            extra_up_next = 0;                  
+            extra_up_next = 0;
+            cool_down_next = COOL_DOWN_TIME;                  
         end
 
         case (state_reg_y)
