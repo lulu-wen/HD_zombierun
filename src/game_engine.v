@@ -43,10 +43,13 @@ module game_engine(
         reg coin_eaten;
 
     // 地板
-        reg [15:0] floor_x = 0;
-        reg [15:0] floor_y = 25; // 固定地板位置 -> 400
         reg [15:0] floor_rows = 3;
         reg [15:0] floor_y_start = 27; // 地板起始行
+        reg [6:0] ground_count = 0;
+        reg [15:0] ground_x, ground_y;
+        reg [15:0] ground_pos_x;
+        reg [15:0] cliff_x; // 儲存每一行的斷崖起始位置
+        reg [15:0] rand_seed = 16'd12345;
 
     // Mario
         wire wlk;
@@ -78,6 +81,11 @@ module game_engine(
         score <= 0;
         game_over <= 0;
         scroll_delay <= 1_000_000; 
+        ground_count <= 0; // 初始化地板繪製的索引
+        ground_x <= 0;
+        ground_pos_x <= 0;
+        ground_y <= TILE_ROWS - 3;
+        cliff_x <= 10;
        /* pipe_pos_x[0] <= 39;
         pipe_up_end[0] <= 10;
         pipe_gap_end[0] <= 22;
@@ -94,7 +102,38 @@ module game_engine(
         pipe_y[2] <= 2;
         pipe_x[2] <= 39;*/
     end
-    
+    reg [1:0] random_sec;             // 隨機秒數（1、2 或 3 秒）
+    reg [23:0] counter;               // 計數器（24 位足夠計到 3 秒）
+    reg waiting;
+    reg [3:0] lfsr;
+    always @(posedge clk) begin
+        if (reset) begin
+            lfsr <= 4'b1011;          // 初始值
+        end else begin
+            lfsr <= {lfsr[2:0], lfsr[3] ^ lfsr[2]}; // 線性反饋
+        end
+    end
+
+    // 每次重置時更新隨機秒數
+    always @(posedge clk) begin
+        if (reset) begin
+            random_sec <= 2'd1;       // 初始為 1 秒
+            waiting <= 1'b0;
+        end else if (cliff_x == 0) begin
+            waiting <= 1'b1;
+            random_sec <= (lfsr[1:0] % 3) + 1; // 隨機生成 1、2 或 3
+        end
+    end
+
+    always @(posedge clk) begin
+    if(counter >= (24'd500_000) * random_sec) begin
+        counter <= 20'd0;
+    end else begin
+        if(waiting) counter <= counter + 1;
+        else counter <= counter;
+    end
+    end
+
     always @ (posedge clk) begin
 
      if (reset) begin
@@ -102,7 +141,12 @@ module game_engine(
         bg_wea <= 0;
         game_over <= 0;
         scroll_delay <= 1_000_000;
-        floor_x = 0; 
+        ground_count <= 0; // 初始化地板繪製的索引
+        ground_x <= 0;
+        cliff_x <= 10;
+        ground_pos_x <= 0;
+        ground_y <= TILE_ROWS - 3;
+        rand_seed <= 16'd12345;
        /* pipe_pos_x[0] <= 39;
         pipe_up_end[0] <= 10;
         pipe_gap_end[0] <= 22;
@@ -125,6 +169,7 @@ module game_engine(
     `define X_FILP ram_data[6:6]
     `define Y_FLIP ram_data[7:7]
     `define ENABLE ram_data[8:8]*/
+    rand_seed <= (rand_seed * 16'd11035 + 16'd12345) % 16'd32768;
      if (game_on) begin
         if (clear_bg) begin
             bg_wea <= 1;
@@ -138,7 +183,7 @@ module game_engine(
               else if (bam_counter >= 2050 & bam_counter < 2064) begin bam_select <= 0; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else if (bam_counter >= 2064 & bam_counter < 2100) begin bam_select <= 3; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else if (bam_counter >= 2100 & bam_counter < 2300) begin bam_select <= 4; bam_counter <= bam_counter + 1; bg_wea <= 1; end
-              else begin bam_counter <= 0; pipe_count <= 0; end
+              else begin bam_counter <= 0; ground_count <= 0; end
             
               bam_addr[0] <= score_addr;
               bam_data[0] <= score_data;
@@ -167,41 +212,53 @@ module game_engine(
                   pipe_data_props <= 3'b000;
               end
               */
-                // 處理第一行
-                for (i = 0; i < TILE_COLS; i = i + 1) begin
-                    bam_addr[1] <= i + (floor_y_start) * TILE_COLS;
-
-                    // 第一行的處理
-                    if (i == 0) begin
-                        bam_data[1] <= {1'b1, 2'b01, 3'd6, 3'd1}; // 最左邊的地板屬性
-                    end else if (i == TILE_COLS - 1) begin
-                        bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd1}; // 最右邊的地板屬性
+        if (ground_count < TILE_COLS * 3) begin
+            ground_x <= ground_count % TILE_COLS; // x 座標是當前列
+            ground_y <= floor_y_start + (ground_count / TILE_COLS); // y 座標根據行數計算
+            bam_addr[1] <= ground_x + ground_y * TILE_COLS; // 計算 BAM 地址
+        
+            /*if (ground_count == 0) begin
+                cliff_x <= (rand_seed % (TILE_COLS - 4)) + 2; // 斷崖位置範圍：1 ~ TILE_COLS - 2
+            end*/
+    
+            if (ground_x == cliff_x - 2) begin
+                    // 左邊緣
+                    if (ground_y == floor_y_start) begin
+                        bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd1}; // 左斷崖
                     end else begin
-                        bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd0}; // 其他位置的地板屬性
+                        bam_data[1] <= {1'b1, 2'b00, 3'd7, 3'd0};
                     end
-
                     bg_wea <= 1;
-                end
-
-                // 處理第二行
-                for (i = 0; i < TILE_COLS; i = i + 1) begin
-                    bam_addr[1] <= i + (floor_y_start + 1) * TILE_COLS;
-
-                    // 第二行及以下的地板屬性
-                    bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd3};
-
+            end else if (ground_x == cliff_x + 1) begin
+                    // 右邊緣
+                    if (ground_y == floor_y_start) begin
+                        bam_data[1] <= {1'b1, 2'b01, 3'd6, 3'd1}; // 右斷崖
+                    end else begin
+                        bam_data[1] <= {1'b1, 2'b01, 3'd7, 3'd0};
+                    end
                     bg_wea <= 1;
-                end
-
-                // 處理最後一行
-                for (i = 0; i < TILE_COLS; i = i + 1) begin
-                    bam_addr[1] <= i + (floor_y_start + 1) * TILE_COLS;
-
-                    // 第三行及以下的地板屬性
-                    bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd3};
-
+            end else if (ground_x >= cliff_x - 1 && ground_x <= cliff_x) begin
+                    // 空白區域
+                    bg_wea <= 0;
+            end else begin
                     bg_wea <= 1;
-                end
+                    if (ground_y == floor_y_start) begin
+                    // 第一行地板
+                        bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd0}; // 中間地板屬性
+                    end else if (ground_y == (TILE_ROWS) - 2) begin
+                        // 第二行地板
+                        bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd3};
+                    end else if (ground_y == (TILE_ROWS) - 1) begin
+                        // 第三行地板
+                        bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd3};
+                    end 
+            end
+                ground_count <= ground_count + 1;
+        end else begin
+                bg_wea <= 0; // 停止寫入
+                ground_count <= 0;
+        end
+
               /*if (floor_y == y / TILE_HEIGHT) begin
                     bam_addr[1] <= floor_x + floor_y * TILE_COLS;
                     bam_data[1] <= {1'b1, 2'b00, 3'd7, 3'd1}; // 設定地板圖塊的屬性
@@ -238,10 +295,18 @@ module game_engine(
             coin_x <= 39 - coin_y_osc % 6;
             coin_y <= coin_y_osc % (TILE_ROWS - 2) + 2;
         end
-        if (floor_x > 0)
-            floor_x <= floor_x - 1;
-        else
-            floor_x <= TILE_COLS - 1; // 循環滾動
+        if (ground_x > 0) begin
+            ground_x <= ground_x - 1;
+        end else begin
+            ground_x <= TILE_COLS; // 循環滾動
+        end
+        if(cliff_x > 0 && cliff_x != 100) begin
+            cliff_x <= cliff_x - 1;
+        end else begin
+            if(!waiting) cliff_x <= TILE_COLS - 1;
+            else cliff_x <= 100;
+        end
+
         for (i = 0; i < 3; i = i + 1)
         /*if (pipe_pos_x[i] > 0)  begin
             pipe_pos_x[i] <= pipe_pos_x[i] - 1;
@@ -252,8 +317,7 @@ module game_engine(
                 score <= score + 1;
             end 
         end
-        else begin
-        
+        else begin   
             pipe_pos_x[i] <= 39;
             pipe_x[i] <= 39;
             pipe_up_end[i] <= up_end_osc + 6;
