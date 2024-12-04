@@ -53,23 +53,9 @@ module game_engine(
 
     // Mario
         wire wlk;
-        wire [9:0] mario_x[4:0], mario_y[4:0];
-        wire [9:0] mario_x_shift[4:0];
-        assign mario_x_shift[0] = 0;
-        assign mario_x_shift[1] = 10;
-        assign mario_x_shift[2] = 20;
-        assign mario_x_shift[3] = 30;
-        assign mario_x_shift[4] = 40;
+        wire [9:0] mario_x, mario_y;
         reg game_over = 0;
-        mario mario1(.pos_x_shift(mario_x_shift[0]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[0]), .pos_y_reg(mario_y[0]),
-                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
-        mario mario2(.pos_x_shift(mario_x_shift[1]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[1]), .pos_y_reg(mario_y[1]),
-                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
-        mario mario3(.pos_x_shift(mario_x_shift[2]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[2]), .pos_y_reg(mario_y[2]),
-                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
-        mario mario4(.pos_x_shift(mario_x_shift[3]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[3]), .pos_y_reg(mario_y[3]),
-                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
-        mario mario5(.pos_x_shift(mario_x_shift[4]), .clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[4]), .pos_y_reg(mario_y[4]),
+        mario mario(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x), .pos_y_reg(mario_y),
                     .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
 
     // game status
@@ -116,37 +102,18 @@ module game_engine(
         pipe_y[2] <= 2;
         pipe_x[2] <= 39;*/
     end
-    reg [1:0] random_sec;             // 隨機秒數（1、2 或 3 秒）
-    reg [23:0] counter;               // 計數器（24 位足夠計到 3 秒）
-    reg waiting;
-    reg [3:0] lfsr;
-    always @(posedge clk) begin
+    reg [7:0] lfsr_cliff;
+    reg cliff_refresh;
+
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
-            lfsr <= 4'b1011;          // 初始值
+            lfsr_cliff <= 8'b10110101; 
         end else begin
-            lfsr <= {lfsr[2:0], lfsr[3] ^ lfsr[2]}; // 線性反饋
+            lfsr_cliff <= {lfsr_cliff[6:0], lfsr_cliff[7] ^ lfsr_cliff[5]}; // 蝺�批���
         end
     end
 
-    // 每次重置時更新隨機秒數
-    always @(posedge clk) begin
-        if (reset) begin
-            random_sec <= 2'd1;       // 初始為 1 秒
-            waiting <= 1'b0;
-        end else if (cliff_x == 0) begin
-            waiting <= 1'b1;
-            random_sec <= (lfsr[1:0] % 3) + 1; // 隨機生成 1、2 或 3
-        end
-    end
-
-    always @(posedge clk) begin
-    if(counter >= (24'd500_000) * random_sec) begin
-        counter <= 20'd0;
-    end else begin
-        if(waiting) counter <= counter + 1;
-        else counter <= counter;
-    end
-    end
+    
 
     always @ (posedge clk) begin
 
@@ -160,7 +127,6 @@ module game_engine(
         cliff_x <= 10;
         ground_pos_x <= 0;
         ground_y <= TILE_ROWS - 3;
-        rand_seed <= 16'd12345;
        /* pipe_pos_x[0] <= 39;
         pipe_up_end[0] <= 10;
         pipe_gap_end[0] <= 22;
@@ -183,7 +149,6 @@ module game_engine(
     `define X_FILP ram_data[6:6]
     `define Y_FLIP ram_data[7:7]
     `define ENABLE ram_data[8:8]*/
-    rand_seed <= (rand_seed * 16'd11035 + 16'd12345) % 16'd32768;
      if (game_on) begin
         if (clear_bg) begin
             bg_wea <= 1;
@@ -251,7 +216,7 @@ module game_engine(
                         bam_data[1] <= {1'b1, 2'b01, 3'd7, 3'd0};
                     end
                     bg_wea <= 1;
-            end else if (ground_x >= cliff_x - 1 && ground_x <= cliff_x) begin
+            end else if (ground_x >= cliff_x - 1 && ground_x <= cliff_x || (ground_x == 0 && cliff_refresh)) begin
                     // 空白區域
                     bg_wea <= 0;
             end else begin
@@ -314,11 +279,12 @@ module game_engine(
         end else begin
             ground_x <= TILE_COLS; // 循環滾動
         end
-        if(cliff_x > 0 && cliff_x != 100) begin
+        if(cliff_x > 0) begin
             cliff_x <= cliff_x - 1;
-        end else begin
-            if(!waiting) cliff_x <= TILE_COLS - 1;
-            else cliff_x <= 100;
+            cliff_refresh <= 1'b0;
+        end else if(cliff_x == 0) begin
+            cliff_x <= (lfsr_cliff % 101) + 50;
+            cliff_refresh <= 1'b1;
         end
 
         for (i = 0; i < 3; i = i + 1)
