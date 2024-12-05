@@ -13,8 +13,8 @@ module game_engine(
     output wire [31:0] bg_ram_data
 ); 
     // Multiplexers
-        reg [15:0] bam_addr [4:0];
-        reg [15:0] bam_data [4:0];
+        reg [15:0] bam_addr [5:0];
+        reg [15:0] bam_data [5:0];
         wire  [15:0] score_addr, score_data, text_addr, text_data;
         reg [15:0] score = 0;
         reg  [2:0] bam_select;
@@ -48,15 +48,20 @@ module game_engine(
         reg [6:0] ground_count = 0;
         reg [15:0] ground_x, ground_y;
         reg [15:0] ground_pos_x;
-        reg [15:0] cliff_x; // 儲存每一行的斷崖起始位置
-        reg [15:0] rand_seed = 16'd12345;
+        reg [15:0] cliff_x, right_cliff_x;
 
     // Mario
+        reg mario_on_ground;
         wire wlk;
         wire [9:0] mario_x, mario_y;
         reg game_over = 0;
         mario mario(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x), .pos_y_reg(mario_y),
-                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr));
+                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr), .mario_on_ground(mario_on_ground));
+
+    // Ghost
+    reg [15:0] ghost_x = 37;  // 初始化鬼魂位置為螢幕右側
+    reg [15:0] ghost_y = 15;  // 鬼魂垂直位置（可以根據需求調整）
+    wire [7:0] ghost_data_col = 4;
 
     // game status
     vga_num vga_num(clk, 1, score, score_addr, score_data);
@@ -86,34 +91,21 @@ module game_engine(
         ground_pos_x <= 0;
         ground_y <= TILE_ROWS - 3;
         cliff_x <= 10;
-       /* pipe_pos_x[0] <= 39;
-        pipe_up_end[0] <= 10;
-        pipe_gap_end[0] <= 22;
-        pipe_y[0] <= 2;
-        pipe_x[0] <= 39;
-        pipe_pos_x[1] <= 26;
-        pipe_up_end[1] <= 11;
-        pipe_gap_end[1] <= 24;
-        pipe_y[1] <= 2;
-        pipe_x[1] <= 39;
-        pipe_pos_x[2] <= 13;
-        pipe_up_end[2] <= 14;
-        pipe_gap_end[2] <= 24;
-        pipe_y[2] <= 2;
-        pipe_x[2] <= 39;*/
+
+        // Mario
+        mario_on_ground <= 1'b1;
     end
     reg [7:0] lfsr_cliff;
     reg cliff_refresh;
+    reg [7:0] cliff_refresh_idx;
 
     always @(posedge clk or posedge reset) begin
         if (reset) begin
             lfsr_cliff <= 8'b10110101; 
         end else begin
-            lfsr_cliff <= {lfsr_cliff[6:0], lfsr_cliff[7] ^ lfsr_cliff[5]}; // 蝺�批���
+            lfsr_cliff <= {lfsr_cliff[6:0], lfsr_cliff[7] ^ lfsr_cliff[5]};
         end
     end
-
-    
 
     always @ (posedge clk) begin
 
@@ -124,24 +116,12 @@ module game_engine(
         scroll_delay <= 1_000_000;
         ground_count <= 0; // 初始化地板繪製的索引
         ground_x <= 0;
-        cliff_x <= 10;
+        cliff_x <= 20;
         ground_pos_x <= 0;
         ground_y <= TILE_ROWS - 3;
-       /* pipe_pos_x[0] <= 39;
-        pipe_up_end[0] <= 10;
-        pipe_gap_end[0] <= 22;
-        pipe_y[0] <= 1;
-        pipe_x[0] <= 39;
-        pipe_pos_x[1] <= 26;
-        pipe_up_end[1] <= 11;
-        pipe_gap_end[1] <= 24;
-        pipe_y[1] <= 1;
-        pipe_x[1] <= 39;
-        pipe_pos_x[2] <= 13;
-        pipe_up_end[2] <= 3;
-        pipe_gap_end[2] <= 28;
-        pipe_y[2] <= 1;
-        pipe_x[2] <= 39;*/
+
+        // Mario
+        mario_on_ground <= 1'b1;
      end
     /*
         `define TILE_COL ram_data[2:0]
@@ -162,6 +142,7 @@ module game_engine(
               else if (bam_counter >= 2050 & bam_counter < 2064) begin bam_select <= 0; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else if (bam_counter >= 2064 & bam_counter < 2100) begin bam_select <= 3; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else if (bam_counter >= 2100 & bam_counter < 2300) begin bam_select <= 4; bam_counter <= bam_counter + 1; bg_wea <= 1; end
+              else if (bam_counter >= 2300 && bam_counter < 2500) begin bam_select <= 5; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else begin bam_counter <= 0; ground_count <= 0; end
             
               bam_addr[0] <= score_addr;
@@ -169,38 +150,12 @@ module game_engine(
               bam_addr[4] <= text_addr;
               bam_data[4] <= text_data;
               
-              /*if (pipe_y[pipe_count] < pipe_up_end[pipe_count] | pipe_y[pipe_count] > pipe_gap_end[pipe_count]) 
-              begin
-                  pipe_data_col <= 3'd2 + pipe_x[pipe_count] - pipe_pos_x[pipe_count];
-                  pipe_data_props <= 3'b100;
-              end
-              else if (pipe_y[pipe_count] == pipe_up_end[pipe_count])
-              begin
-                  pipe_data_col <= 3'd0 + pipe_x[pipe_count] - pipe_pos_x[pipe_count];
-                  pipe_data_props <= 3'b110;
-                  
-              end
-              else if (pipe_y[pipe_count] == pipe_gap_end[pipe_count]) 
-              begin
-                  pipe_data_col <= 3'd0 + pipe_x[pipe_count] - pipe_pos_x[pipe_count];
-                  pipe_data_props <= 3'b100;
-              end
-              else if (pipe_y[pipe_count] > pipe_up_end[pipe_count] + 1 & pipe_y[pipe_count] < pipe_gap_end[pipe_count] - 1)
-              begin
-                  bg_wea <= 0;
-                  pipe_data_props <= 3'b000;
-              end
-              */
         if (ground_count < TILE_COLS * 3) begin
-            ground_x <= ground_count % TILE_COLS; // x 座標是當前列
+            ground_x <= ground_count % TILE_COLS;
             ground_y <= floor_y_start + (ground_count / TILE_COLS); // y 座標根據行數計算
             bam_addr[1] <= ground_x + ground_y * TILE_COLS; // 計算 BAM 地址
-        
-            /*if (ground_count == 0) begin
-                cliff_x <= (rand_seed % (TILE_COLS - 4)) + 2; // 斷崖位置範圍：1 ~ TILE_COLS - 2
-            end*/
     
-            if (ground_x == cliff_x - 2) begin
+            if (ground_x == cliff_x - 4) begin
                     // 左邊緣
                     if (ground_y == floor_y_start) begin
                         bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd1}; // 左斷崖
@@ -208,19 +163,19 @@ module game_engine(
                         bam_data[1] <= {1'b1, 2'b00, 3'd7, 3'd0};
                     end
                     bg_wea <= 1;
-            end else if (ground_x == cliff_x + 1) begin
+            // cliff & cliff - 1 -> cliff = 0 / cliff_refresh_idx <= (lfsr_cliff % 101) + 20;
+            end else if (ground_x == (cliff_x - 1)) begin
                     // 右邊緣
                     if (ground_y == floor_y_start) begin
-                        bam_data[1] <= {1'b1, 2'b01, 3'd6, 3'd1}; // 右斷崖
-                    end else begin
-                        bam_data[1] <= {1'b1, 2'b01, 3'd7, 3'd0};
-                    end
+                            bam_data[1] <= {1'b1, 2'b01, 3'd6, 3'd1}; // 右斷崖
+                        end else begin
+                            bam_data[1] <= {1'b1, 2'b01, 3'd7, 3'd0};
+                        end
                     bg_wea <= 1;
-            end else if (ground_x >= cliff_x - 1 && ground_x <= cliff_x || (ground_x == 0 && cliff_refresh)) begin
+            end else if ((ground_x == cliff_x - 3 || ground_x == cliff_x - 2)) begin
                     // 空白區域
                     bg_wea <= 0;
             end else begin
-                    bg_wea <= 1;
                     if (ground_y == floor_y_start) begin
                     // 第一行地板
                         bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd0}; // 中間地板屬性
@@ -230,39 +185,21 @@ module game_engine(
                     end else if (ground_y == (TILE_ROWS) - 1) begin
                         // 第三行地板
                         bam_data[1] <= {1'b1, 2'b00, 3'd6, 3'd3};
-                    end 
+                    end
+                    bg_wea <= 1; 
             end
-                ground_count <= ground_count + 1;
+            ground_count <= ground_count + 1;
         end else begin
                 bg_wea <= 0; // 停止寫入
                 ground_count <= 0;
         end
-
-              /*if (floor_y == y / TILE_HEIGHT) begin
-                    bam_addr[1] <= floor_x + floor_y * TILE_COLS;
-                    bam_data[1] <= {1'b1, 2'b00, 3'd7, 3'd1}; // 設定地板圖塊的屬性
-                    bam_select <= 5;
-                    bg_wea <= 1;
-              end*/ // 這個是只有兩個地板會動的
-              /*
-              if (pipe_y[pipe_count] == 39) begin
-                  pipe_y[pipe_count] <= 1;
-                  if (pipe_x[pipe_count] != pipe_pos_x[pipe_count] + 1)
-                     pipe_x[pipe_count] <= pipe_pos_x[pipe_count] + 1;
-                  else
-                  begin
-                     pipe_count <= pipe_count + 1;
-                     pipe_y[pipe_count + 1] <= 1; end
-
-              end else
-                  pipe_y[pipe_count] <= pipe_y[pipe_count] + 1;
-              */
-            /*bam_addr[1] <= pipe_x[pipe_count] + pipe_y[pipe_count] * TILE_COLS;
-            bam_data[1] <= {pipe_data_props, 3'd5, pipe_data_col};*/
             // coin 
             coin_data_col <= coin_frame + 4;
             bam_addr[3] <= coin_x + coin_y * TILE_COLS;
             bam_data[3] <= {~coin_eaten , 2'b00, 3'd7, coin_data_col};
+
+            bam_addr[5] <= ghost_x + ghost_y * TILE_COLS;
+            bam_data[5] <= {1'b1, 2'b00, 3'd6, 3'd7}; // 設定鬼魂屬性和圖像
             end
       bg_x_offset <= (y < 32) ? 0 : real_bg_x_offset;
       if (scroll_counter == scroll_delay) begin
@@ -272,41 +209,31 @@ module game_engine(
         end else begin
             coin_eaten <= 0;
             coin_x <= 39 - coin_y_osc % 6;
-            coin_y <= coin_y_osc % (TILE_ROWS - 2) + 2;
+            coin_y <= (coin_y_osc % 4 + 23);
         end
-        if (ground_x > 0) begin
+         if (ghost_x > 0) begin
+            ghost_x <= ghost_x - 1;
+        end else begin
+            ghost_x <= TILE_COLS - 1;
+        end
+        /*if (ground_x > 0) begin
             ground_x <= ground_x - 1;
         end else begin
-            ground_x <= TILE_COLS; // 循環滾動
-        end
+            ground_x <= 39; // 循環滾動
+        end*/
         if(cliff_x > 0) begin
             cliff_x <= cliff_x - 1;
-            cliff_refresh <= 1'b0;
+            cliff_refresh_idx <= cliff_refresh_idx;
+            if(cliff_x == (cliff_refresh - 1 || cliff_refresh_idx - 2)) cliff_refresh <= 1'b1;
+            else cliff_refresh <= 1'b0;
         end else if(cliff_x == 0) begin
             cliff_x <= (lfsr_cliff % 101) + 50;
             cliff_refresh <= 1'b1;
+            cliff_refresh_idx <= (lfsr_cliff % 101) + 20;
         end
-
-        for (i = 0; i < 3; i = i + 1)
-        /*if (pipe_pos_x[i] > 0)  begin
-            pipe_pos_x[i] <= pipe_pos_x[i] - 1;
-            pipe_x[i] <= pipe_pos_x[i] - 1;
-            pipe_y[i] <= 1;
-            if (pipe_pos_x[i] == 2 && ~game_over) begin
-                if (scroll_delay > MIN_SCROLL_DELAY & (score + 1) % 10 == 0) scroll_delay <= scroll_delay - SPEED_UP_STEP; 
-                score <= score + 1;
-            end 
-        end
-        else begin   
-            pipe_pos_x[i] <= 39;
-            pipe_x[i] <= 39;
-            pipe_up_end[i] <= up_end_osc + 6;
-            pipe_gap_end[i] <= up_end_osc + 14 + gap_end_osc;
-            pipe_y[i] <= 1; 
-        end*/
         clear_bg <= 1; bam_addr[2] <= 0;
         end
-        real_bg_x_offset <= real_bg_x_offset + 1;
+        real_bg_x_offset <= (real_bg_x_offset + 1) % TILE_COLS;
         scroll_counter <= 0;
       end else
         scroll_counter <= scroll_counter + 1;
@@ -323,6 +250,18 @@ module game_engine(
           & ~coin_eaten & ~game_over)
         begin coin_eaten <= 1; score <= score + COIN_SCORE; end
 
+        // Mario on ground (ground_x >= cliff_x - 2 && ground_x <= cliff_x - 1)
+        if (mario_x + real_bg_x_offset >= ((cliff_x - 4) * TILE_WIDTH) && 
+            mario_x + real_bg_x_offset <= ((cliff_x - 2) * TILE_WIDTH)) begin
+            mario_on_ground <= 1'b0;
+        end else begin
+            mario_on_ground <= 1'b1;
+        end
+        if (!mario_on_ground && mario_y >= 480) begin
+            game_over <= 1; // 如果馬力歐不在地板上且掉出畫面，遊戲結束
+        end else begin
+            game_over <= game_over;
+        end 
       up_end_osc <= up_end_osc + x / 2 + y + score;
       gap_end_osc <= gap_end_osc + y + score;
       coin_y_osc <= coin_y_osc + y + x;
