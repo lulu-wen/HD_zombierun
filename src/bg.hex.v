@@ -13,7 +13,7 @@
     output reg [ROM_WIDTH-1:0] color;
 
     initial
-      $readmemh("bg_rom.hex", rom);
+      $readmemh("bg.hex", rom);
 
     always @(posedge clk)
       if (video_on) begin

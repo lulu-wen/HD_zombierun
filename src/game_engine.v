@@ -199,7 +199,7 @@ module game_engine(
             bam_data[3] <= {~coin_eaten , 2'b00, 3'd7, coin_data_col};
 
             bam_addr[5] <= ghost_x + ghost_y * TILE_COLS;
-            bam_data[5] <= {1'b1, 2'b00, 3'd6, 3'd7}; // 設定鬼魂屬性和圖像
+            bam_data[5] <= {1'b1, 2'b00, 3'd6, 3'd5}; // 設定鬼魂屬性和圖像
             end
       bg_x_offset <= (y < 32) ? 0 : real_bg_x_offset;
       if (scroll_counter == scroll_delay) begin
