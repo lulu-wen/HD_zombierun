@@ -4,7 +4,7 @@
 //  If a reset or enable is not necessary, it may be tied off or removed from the code.
 
 module ram #(
-  parameter RAM_WIDTH = 64,                       // Specify RAM data width
+  parameter RAM_WIDTH = 16,                       // Specify RAM data width
   parameter RAM_DEPTH = 512,                      // Specify RAM depth (number of entries)
   parameter RAM_PERFORMANCE = "HIGH_PERFORMANCE", // Select "HIGH_PERFORMANCE" or "LOW_LATENCY" 
   parameter INIT_FILE = ""                        // Specify name/location of RAM initialization file if using one (leave blank if not)
