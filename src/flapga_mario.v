@@ -86,7 +86,7 @@ module flapga_mario
         background_engine bg_engine(clk, video_on, bg_x_offset, x, y, bam_data, bg_ram_addr, layer_on[1], rgb_pic[1]);
         object_engine obj_eng (clk, video_on, x, y, oam_data, oam_addr, layer_on[2], rgb_pic[2]);
         game_engine game_eng (clk, clr, video_on, game_begin, up, down, left, right, f_tick, x, y, bg_x_offset, addr[1], addr[0], bg_wea, dina[1], dina[0]);
-        
+
         assign bam_data = game_begin ? bg_data : splash_data;
         assign layer_on[0] = y > 32 & game_begin;
         always @ (posedge clk)
