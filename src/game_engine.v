@@ -62,8 +62,8 @@ module game_engine(
 
     // Ghost
     reg [15:0] ghost_x = 37;  // 初始化鬼魂位置為螢幕右側
-    reg [15:0] ghost_y = 15;  // 鬼魂垂直位置（可以根據需求調整）
-    wire [7:0] ghost_data_col = 4;
+    reg [15:0] ghost_y = 26;  // 鬼魂垂直位置（可以根據需求調整）
+    wire [7:0] ghost_data_col = 3;
 
     // game status
     vga_num vga_num(clk, 1, score, score_addr, score_data);
@@ -209,7 +209,7 @@ module game_engine(
             bam_data[3] <= {~coin_eaten , 2'b00, 3'd7, coin_data_col};
 
             bam_addr[5] <= ghost_x + ghost_y * TILE_COLS;
-            bam_data[5] <= {1'b1, 2'b01, 3'd6, 3'd5}; // 設定鬼魂屬性和圖像
+            bam_data[5] <= {1'b1, 2'b01, 3'd6, 3'd7}; // 設定鬼魂屬性和圖像：7才是鬼
 
         end
       bg_x_offset <= (y < 32) ? 0 : real_bg_x_offset;
@@ -258,9 +258,9 @@ module game_engine(
       if (coin_animate_counter == COIN_ANIMATE_DELAY) begin coin_frame <= coin_frame + 1; coin_animate_counter <= 0; end
       else coin_animate_counter <= coin_animate_counter + 1;
       
-      if (((mario_x + 28 + real_bg_x_offset) >= (pipe_pos_x[pipe_count] * TILE_WIDTH) & mario_x + real_bg_x_offset < (pipe_pos_x[pipe_count] + 2) * TILE_WIDTH 
+      /*if (((mario_x + 28 + real_bg_x_offset) >= (pipe_pos_x[pipe_count] * TILE_WIDTH) & mario_x + real_bg_x_offset < (pipe_pos_x[pipe_count] + 2) * TILE_WIDTH 
           & ((mario_y < (pipe_up_end[pipe_count] + 1) * TILE_HEIGHT) | (mario_y + 28 > pipe_gap_end[pipe_count] * TILE_HEIGHT))) | mario_y > 480)
-        game_over <= 0;
+        game_over <= 0;*/
 
         if ((mario_x + 28 + real_bg_x_offset) >= (coin_x * TILE_WIDTH) & mario_x + real_bg_x_offset < (coin_x + 1) * TILE_WIDTH 
           & (mario_y >= (coin_y - 1) * TILE_HEIGHT) & (mario_y <= (coin_y + 1) * TILE_HEIGHT)
@@ -276,7 +276,12 @@ module game_engine(
         end
         if (!mario_on_ground && mario_y >= 480) begin
             game_over <= 1; // 如果馬力歐不在地板上且掉出畫面，遊戲結束
-        end else begin
+        end
+        else if ((mario_x + 16 + real_bg_x_offset) >= (ghost_x * TILE_WIDTH) & mario_x + real_bg_x_offset <= (ghost_x + 1) * TILE_WIDTH 
+          & (mario_y + 32 >= (ghost_y) * TILE_HEIGHT) & (mario_y <= (ghost_y + 1) * TILE_HEIGHT)
+          & ~game_over)
+        begin game_over <= 1; end
+        else begin
             game_over <= game_over;
         end 
       up_end_osc <= up_end_osc + x / 2 + y + score;

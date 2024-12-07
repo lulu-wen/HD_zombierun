@@ -15,7 +15,7 @@ module mario(
     wire [8:0] last_change;
     wire been_ready;
 
-    KeyboardDecoder key_de (
+    /*KeyboardDecoder key_de (
         .key_down(key_down),
         .last_change(last_change),
         .key_valid(been_ready),
@@ -23,7 +23,7 @@ module mario(
         .PS2_CLK(PS2_CLK),
         .rst(rst),
         .clk(clk)
-    );
+    );*/
 
     parameter [8:0] KEY_CODE_UP = 9'b0_0010_1001; // 空白鍵
     reg key_num, key_space;
@@ -43,7 +43,7 @@ module mario(
 
     reg [2:0] rom_col, rom_row;
     reg [9:0] pos_x_next, pos_y_next;
-    reg [16:0] frame_counter; // 用來控制幀切換
+    reg [17:0] frame_counter; // 用來控制幀切換
     reg [2:0] current_frame; // 當前的顯示幀
     
     assign dina = {5'b10000, 1'b0, pos_x_reg, pos_y_reg, rom_row, rom_col};
@@ -53,7 +53,7 @@ module mario(
     localparam TIME_STEP_Y       =    10000; 
     localparam TIME_MAX_Y        =   800000;  
     localparam TIME_TERM_Y       =   250000; 
-    localparam RUNNING_FRAME_COUNT = 100000; // 每100000時脈週期切換一幀
+    localparam RUNNING_FRAME_COUNT = 200000; // 每100000時脈週期切換一幀
     
     localparam [2:0]    running_frame_1 = 3'b000,
                         running_frame_2 = 3'b001,
@@ -72,6 +72,7 @@ module mario(
 
     // signals for up-button positive edge signal
     reg [7:0] up_reg;
+    reg is_jumping;
     wire up_edge;
     assign up_edge = ~(&up_reg) & (up | key_space);
     parameter MIN_Y = 32;
