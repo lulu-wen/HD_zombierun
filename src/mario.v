@@ -7,8 +7,39 @@ module mario(
     output reg [9:0] pos_x_reg,
     output reg [9:0] pos_y_reg,  // 設定地板高度為100
     output wire [31:0] dina,
-    output wire [2:0] addr
+    output wire [2:0] addr,
+    inout wire PS2_DATA,
+    inout wire PS2_CLK
 );
+    wire [511:0] key_down;
+    wire [8:0] last_change;
+    wire been_ready;
+
+    KeyboardDecoder key_de (
+        .key_down(key_down),
+        .last_change(last_change),
+        .key_valid(been_ready),
+        .PS2_DATA(PS2_DATA),
+        .PS2_CLK(PS2_CLK),
+        .rst(rst),
+        .clk(clk)
+    );
+
+    parameter [8:0] KEY_CODE_UP = 9'b0_0010_1001; // 空白鍵
+    reg key_num, key_space;
+    always @(*) begin
+    case(last_change)
+        KEY_CODE_UP : key_num = 1'b1;
+        default    : key_num = 1'b0;
+    endcase
+    end
+    always @(posedge clk) begin
+        if(been_ready && key_down[last_change] == 1'b1 && key_num == 2'b00) begin
+            key_space <= 1'b1;
+        end else begin
+            key_space <= 1'b0;
+        end
+    end
 
     reg [2:0] rom_col, rom_row;
     reg [9:0] pos_x_next, pos_y_next;
@@ -41,9 +72,8 @@ module mario(
 
     // signals for up-button positive edge signal
     reg [7:0] up_reg;
-    reg is_jumping;
     wire up_edge;
-    assign up_edge = ~(&up_reg) & up;
+    assign up_edge = ~(&up_reg) & (up | key_space);
     parameter MIN_Y = 32;
 
     always @(posedge clk) begin
@@ -74,7 +104,7 @@ module mario(
             extra_up_reg <= extra_up_next;
             pos_y_reg    <= pos_y_next;
             cool_down_reg <= cool_down_next;
-            up_reg     <= {up_reg[6:0], up};
+            up_reg     <= {up_reg[6:0], (up | key_space)};
         end
     end
 
@@ -157,44 +187,25 @@ module mario(
                 if(jump_t_reg > 0) begin
                     jump_t_next = jump_t_reg - 1; 
                 end
-                /*if(jump_t_reg == 0) begin
-                    if (mario_on_ground  && !game_over) begin
-                        pos_y_next = 400; // 回到地板高度
-                        is_jumping <= 1'b0;
-                    end else if (pos_y_next < 480) begin
-                        pos_y_next = pos_y_reg + 1; // 繼續掉落
-                    end else begin
-                        pos_y_next = 480; // 限制最大掉落深度
-                        is_jumping <= 1'b0;
-                    end
-                    if(start_reg_y > TIME_TERM_Y) begin
-                        start_next_y = start_reg_y - TIME_STEP_Y; 
-                        jump_t_next = start_reg_y - TIME_STEP_Y;  
-                    end else begin  
-                        jump_t_next = TIME_TERM_Y;
-                    end
-                end*/
+
                 // mario_on_ground -> 橫向位移不在cliff的範圍
                 if(jump_t_reg == 0)                                   
                     begin
                         begin
                         if (mario_on_ground && pos_y_reg == 400) begin
                             pos_y_next = 400; // 鎖定地面高度
-                            is_jumping = 1'b0; // 結束跳躍狀態
                         end 
                         // 馬力歐在空中時
                         else if (pos_y_reg < 480) begin
                             pos_y_next = pos_y_reg + 1; // 繼續掉落
-                            is_jumping = 1'b1; // 確保處於跳躍狀態
                         end 
                         // 馬力歐接近螢幕下邊界時
                         else begin
                             pos_y_next = 480; // 限制在螢幕下邊界
-                            is_jumping = 1'b0; // 結束跳躍狀態
                         end
 
 
-                        if(start_reg_y > TIME_TERM_Y && is_jumping)                 
+                        if(start_reg_y > TIME_TERM_Y)                 
                             begin
                                 start_next_y = start_reg_y - TIME_STEP_Y; 
                                 jump_t_next = start_reg_y - TIME_STEP_Y;  

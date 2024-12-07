@@ -23,22 +23,23 @@ module background_engine(
     `define X_FILP ram_data[6:6]
     `define Y_FLIP ram_data[7:7]
     `define ENABLE ram_data[8:8]
-    `define POS_X ((x + x_offset) / TILE_WIDTH)
+    `define POS_X ((y <= 100) ? (x / TILE_WIDTH) : ((x + x_offset) / TILE_WIDTH))
     `define POS_Y (y / TILE_HEIGHT)
 
     bg_rom bg_rom(.clk(clk), .video_on(video_on), .x(rom_x), .y(rom_y), .color(rom_data));
 
-    always @(*) begin
-      ram_addr = `POS_X + `POS_Y  * TILE_COLS;
-      if (`X_FILP == 0)
-        rom_x = `TILE_COL * TILE_WIDTH + ((x + x_offset) % TILE_WIDTH);
-      else
-        rom_x = `TILE_COL * TILE_WIDTH + (TILE_WIDTH - 1 - ((x + x_offset) % TILE_WIDTH));
-      
-      if (`Y_FLIP == 0)
-        rom_y = `TILE_ROW * TILE_HEIGHT + (y % TILE_HEIGHT);
-      else
-        rom_y = `TILE_ROW * TILE_HEIGHT + TILE_HEIGHT - 1 - (y % TILE_HEIGHT);
+     always @(*) begin
+        ram_addr = `POS_X + `POS_Y * TILE_COLS;
+        
+        if (`X_FILP == 0)
+            rom_x = `TILE_COL * TILE_WIDTH + ((y <= 100) ? (x % TILE_WIDTH) : ((x + x_offset) % TILE_WIDTH));
+        else
+            rom_x = `TILE_COL * TILE_WIDTH + (TILE_WIDTH - 1 - ((y <= 100) ? (x % TILE_WIDTH) : ((x + x_offset) % TILE_WIDTH)));
+        
+        if (`Y_FLIP == 0)
+            rom_y = `TILE_ROW * TILE_HEIGHT + (y % TILE_HEIGHT);
+        else
+            rom_y = `TILE_ROW * TILE_HEIGHT + TILE_HEIGHT - 1 - (y % TILE_HEIGHT);
     end
 
     assign pixel_on = ~(rom_data == 12'h00f | `ENABLE == 0);

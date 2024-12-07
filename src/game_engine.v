@@ -10,7 +10,9 @@ module game_engine(
     output wire [15:0] bg_ram_addr,
     output reg bg_wea = 0,
     output wire [31:0] obj_ram_data,
-    output wire [31:0] bg_ram_data
+    output wire [31:0] bg_ram_data,
+    inout wire PS2_DATA,
+    inout wire PS2_CLK
 ); 
     // Multiplexers
         reg [15:0] bam_addr [5:0];
@@ -56,7 +58,7 @@ module game_engine(
         wire [9:0] mario_x, mario_y;
         reg game_over = 0;
         mario mario(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x), .pos_y_reg(mario_y),
-                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr), .mario_on_ground(mario_on_ground));
+                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr), .mario_on_ground(mario_on_ground), .PS2_DATA(PS2_DATA), .PS2_CLK(PS2_CLK));
 
     // Ghost
     reg [15:0] ghost_x = 37;  // 初始化鬼魂位置為螢幕右側
@@ -69,6 +71,14 @@ module game_engine(
 
     integer i;
     reg clear_bg = 0;
+
+    // game over data
+    parameter GRAVITY = 1;          // 重力加速度
+    parameter BOUNCE_DAMP = 2;      // 彈跳速度衰減
+    parameter FLOOR_Y = 240;
+
+    parameter SCORE_START_COL = 36;
+    parameter SCORE_START_ROW = 0; 
     parameter TILE_WIDTH = 16;
     parameter TILE_HEIGHT = 16;
     parameter TILE_COLS = 640 / TILE_WIDTH;
@@ -76,7 +86,7 @@ module game_engine(
     parameter MAX_SCROLL_DELAY = 1_000_000;
     parameter MIN_SCROLL_DELAY = 200_000;
     parameter COIN_ANIMATE_DELAY = 15_000_000;
-    parameter COIN_SCORE = 10;
+    parameter COIN_SCORE = 1;
     parameter SPEED_UP_STEP = 100_000;
 
     // 400 clocks for pipes and 10 clocks for score
@@ -91,7 +101,7 @@ module game_engine(
         ground_pos_x <= 0;
         ground_y <= TILE_ROWS - 3;
         cliff_x <= 10;
-
+        
         // Mario
         mario_on_ground <= 1'b1;
     end
@@ -144,7 +154,7 @@ module game_engine(
               else if (bam_counter >= 2100 & bam_counter < 2300) begin bam_select <= 4; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else if (bam_counter >= 2300 && bam_counter < 2500) begin bam_select <= 5; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else begin bam_counter <= 0; ground_count <= 0; end
-            
+
               bam_addr[0] <= score_addr;
               bam_data[0] <= score_data;
               bam_addr[4] <= text_addr;
@@ -154,7 +164,7 @@ module game_engine(
             ground_x <= ground_count % TILE_COLS;
             ground_y <= floor_y_start + (ground_count / TILE_COLS); // y 座標根據行數計算
             bam_addr[1] <= ground_x + ground_y * TILE_COLS; // 計算 BAM 地址
-    
+
             if (ground_x == cliff_x - 4) begin
                     // 左邊緣
                     if (ground_y == floor_y_start) begin
@@ -199,8 +209,9 @@ module game_engine(
             bam_data[3] <= {~coin_eaten , 2'b00, 3'd7, coin_data_col};
 
             bam_addr[5] <= ghost_x + ghost_y * TILE_COLS;
-            bam_data[5] <= {1'b1, 2'b00, 3'd6, 3'd5}; // 設定鬼魂屬性和圖像
-            end
+            bam_data[5] <= {1'b1, 2'b01, 3'd6, 3'd5}; // 設定鬼魂屬性和圖像
+
+        end
       bg_x_offset <= (y < 32) ? 0 : real_bg_x_offset;
       if (scroll_counter == scroll_delay) begin
         if (real_bg_x_offset == 15) begin
@@ -221,6 +232,12 @@ module game_engine(
         end else begin
             ground_x <= 39; // 循環滾動
         end*/
+        
+        if (!game_over) begin
+                if (scroll_delay > MIN_SCROLL_DELAY & (score + 1) % 10 == 0) scroll_delay <= scroll_delay - SPEED_UP_STEP; 
+                else scroll_delay <= scroll_delay;
+        end else begin scroll_delay <= scroll_delay; end
+
         if(cliff_x > 0) begin
             cliff_x <= cliff_x - 1;
             cliff_refresh_idx <= cliff_refresh_idx;

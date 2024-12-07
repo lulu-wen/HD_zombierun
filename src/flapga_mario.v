@@ -8,7 +8,9 @@ module flapga_mario
 		output wire [6:0] seg,
         output wire [3:0] ano,
         output wire dp,
-        output wire out
+        output wire out,
+        inout wire PS2_DATA,
+        inout wire PS2_CLK
 	);
 	integer z_index;
 	parameter LAYERS = 3;
@@ -85,10 +87,10 @@ module flapga_mario
         cloud_bg cloud_bg(clk, video_on, ((x + cloud_x_offset) / 3) % 213, y / 3, rgb_pic[0]);
         background_engine bg_engine(clk, video_on, bg_x_offset, x, y, bam_data, bg_ram_addr, layer_on[1], rgb_pic[1]);
         object_engine obj_eng (clk, video_on, x, y, oam_data, oam_addr, layer_on[2], rgb_pic[2]);
-        game_engine game_eng (clk, clr, video_on, game_begin, up, down, left, right, f_tick, x, y, bg_x_offset, addr[1], addr[0], bg_wea, dina[1], dina[0]);
+        game_engine game_eng (clk, clr, video_on, game_begin, up, down, left, right, f_tick, x, y, bg_x_offset, addr[1], addr[0], bg_wea, dina[1], dina[0], PS2_DATA, PS2_CLK);
 
         assign bam_data = game_begin ? bg_data : splash_data;
-        assign layer_on[0] = y > 32 & game_begin;
+        assign layer_on[0] = y > 100 & game_begin;
         always @ (posedge clk)
         if (clr) begin
             game_begin <= 0;
