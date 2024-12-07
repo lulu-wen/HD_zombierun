@@ -3,7 +3,7 @@
 module object_engine #(
   parameter OAM_WIDTH = 32, 
   parameter OAM_DEPTH = 8,
-  parameter TILE_WIDTH = 32,
+  parameter TILE_WIDTH = 16,
   parameter TILE_HEIGHT = 32,
   parameter OAM_CACHE_DEPTH = 8
 ) (
@@ -32,7 +32,7 @@ module object_engine #(
     `define SPRITE_COL oam_cache[i][2:0]
     `define SPRITE_ROW oam_cache[i][5:3]
 
-    mario_rom mario_rom(.clk(clk), .video_on(video_on), .x(rom_x), .y(rom_y), .color(rom_data));
+    mario_run mario_rom(.clk(clk), .video_on(video_on), .x(rom_x), .y(rom_y), .color(rom_data));
 
     always @ (posedge clk) begin
         oam_addr <= oam_addr + 1;

@@ -40,6 +40,7 @@ def bin_rom(rom_name, total, x_high, y_high, bin_file):
 def main():
     lines = []
     im = Image.open(args.img_path)
+    im = im.convert('RGB')  # 確保圖片是 RGB 模式
     width = args.width
     height = args.height
     if width is not None and height is not None:
