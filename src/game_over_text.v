@@ -1,24 +1,4 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 05/25/2018 07:25:03 PM
-// Design Name: 
-// Module Name: vga_clock
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 
 module game_over_text(
 input wire clk,
@@ -54,7 +34,7 @@ output wire [15:0] dina
    end
 
     assign dina = {enable, 2'b00, glyph};
-    assign addr = writing_text + 55;    
+    assign addr = writing_text + 55 + 120;    
     
             
 endmodule

@@ -34,7 +34,7 @@ output wire [15:0] dina
     assign num_col = num % 8;
     assign num_row = num / 8;
     assign dina = {3'b100, num_row, num_col};
-    assign addr = writing_digit + 17;    
+    assign addr = writing_digit + 17 + 120;    
 
             
 endmodule
