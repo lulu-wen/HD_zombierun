@@ -124,9 +124,13 @@ module mario(
     end   */
 
     //跑步+跳躍
-    always @(*) begin
-        if (game_over) begin
-            rom_row <= 0;  // 遊戲結束時使用靜止幀
+    always @(posedge clk) begin
+        if (reset) begin
+            rom_row <= 0;
+            rom_col <= 0;
+        end
+        else if (game_over) begin
+            rom_row <= 1;  // 遊戲結束時使用靜止幀
             rom_col <= 0;  // 靜止狀態的第一個幀
         end else if (start_next_y == running_frame_1) begin
             // 當 Mario 正在跳躍時，根據跳躍的過程切換幀
@@ -141,6 +145,7 @@ module mario(
                 rom_col <= running_frame_4;  // 顯示跳躍的最後一個幀
             end
         end else begin
+            rom_row <= rom_row;
             rom_col <= current_frame;
         end
     end    
