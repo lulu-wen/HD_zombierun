@@ -11,6 +11,7 @@ module game_engine(
     output reg bg_wea = 0,
     output wire [31:0] obj_ram_data,
     output wire [31:0] bg_ram_data,
+    output reg game_over,
     inout wire PS2_DATA,
     inout wire PS2_CLK
 ); 
@@ -54,11 +55,14 @@ module game_engine(
 
     // Mario
         reg mario_on_ground;
+        reg [1:0] mario_num;
         wire wlk;
-        wire [9:0] mario_x, mario_y;
-        reg game_over = 0;
-        mario mario(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x), .pos_y_reg(mario_y),
-                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr), .mario_on_ground(mario_on_ground), .PS2_DATA(PS2_DATA), .PS2_CLK(PS2_CLK));
+        wire [9:0] mario_x[2:0];
+        wire [9:0] mario_y[2:0];
+        reg mario_dis_enable[2:0];
+        mario mario_0(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[0]), .pos_y_reg(mario_y[0]),
+                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr), .mario_on_ground(mario_on_ground), .PS2_DATA(PS2_DATA), .PS2_CLK(PS2_CLK), .mario_dis_enable(mario_dis_enable[0]), .mario_num(mario_num));
+
 
     // Ghost
     reg [15:0] ghost_x = 37;  // 初始化鬼魂位置為螢幕右側
@@ -104,6 +108,10 @@ module game_engine(
         
         // Mario
         mario_on_ground <= 1'b1;
+        mario_num <= 2'd1;
+        mario_dis_enable[0] <= 1'b1;
+        mario_dis_enable[1] <= 1'b1;
+        mario_dis_enable[2] <= 1'b0;
     end
     reg [7:0] lfsr_cliff;
     reg cliff_refresh;
@@ -132,6 +140,10 @@ module game_engine(
 
         // Mario
         mario_on_ground <= 1'b1;
+        mario_num <= 2'd1;
+        mario_dis_enable[0] <= 1'b1;
+        mario_dis_enable[1] <= 1'b1;
+        mario_dis_enable[2] <= 1'b0;
      end
     /*
         `define TILE_COL ram_data[2:0]
@@ -209,10 +221,10 @@ module game_engine(
             bam_data[3] <= {~coin_eaten , 2'b00, 3'd7, coin_data_col};
 
             bam_addr[5] <= ghost_x + ghost_y * TILE_COLS;
-            bam_data[5] <= {1'b1, 2'b01, 3'd6, 3'd7}; // 設定鬼魂屬性和圖像：7才是鬼
+            bam_data[5] <= {1'b1, 2'b01, 3'd6, 3'd5}; // 設定鬼魂屬性和圖像：7才是鬼
 
         end
-      bg_x_offset <= (y < 32) ? 0 : real_bg_x_offset;
+      bg_x_offset <= (y <= 70 || game_over) ? 0 : real_bg_x_offset;
       if (scroll_counter == scroll_delay) begin
         if (real_bg_x_offset == 15) begin
         if (coin_x > 0) begin
@@ -261,29 +273,31 @@ module game_engine(
       /*if (((mario_x + 28 + real_bg_x_offset) >= (pipe_pos_x[pipe_count] * TILE_WIDTH) & mario_x + real_bg_x_offset < (pipe_pos_x[pipe_count] + 2) * TILE_WIDTH 
           & ((mario_y < (pipe_up_end[pipe_count] + 1) * TILE_HEIGHT) | (mario_y + 28 > pipe_gap_end[pipe_count] * TILE_HEIGHT))) | mario_y > 480)
         game_over <= 0;*/
+        for(i = 0; i < mario_num; i = i + 1) begin
 
-        if ((mario_x + 28 + real_bg_x_offset) >= (coin_x * TILE_WIDTH) & mario_x + real_bg_x_offset < (coin_x + 1) * TILE_WIDTH 
-          & (mario_y >= (coin_y - 1) * TILE_HEIGHT) & (mario_y <= (coin_y + 1) * TILE_HEIGHT)
-          & ~coin_eaten & ~game_over)
-        begin coin_eaten <= 1; score <= score + COIN_SCORE; end
+            if ((mario_x[i] + 28 + real_bg_x_offset) >= (coin_x * TILE_WIDTH) & mario_x[i] + real_bg_x_offset < (coin_x + 1) * TILE_WIDTH 
+            & (mario_y[i] >= (coin_y - 1) * TILE_HEIGHT) & (mario_y[i] <= (coin_y + 1) * TILE_HEIGHT)
+            & ~coin_eaten & ~game_over)
+            begin coin_eaten <= 1; score <= score + COIN_SCORE; end
 
-        // Mario on ground (ground_x >= cliff_x - 2 && ground_x <= cliff_x - 1)
-        if (mario_x + real_bg_x_offset >= ((cliff_x - 4) * TILE_WIDTH) && 
-            mario_x + real_bg_x_offset <= ((cliff_x - 2) * TILE_WIDTH)) begin
-            mario_on_ground <= 1'b0;
-        end else begin
-            mario_on_ground <= 1'b1;
+            // Mario on ground (ground_x >= cliff_x - 2 && ground_x <= cliff_x - 1)
+            if (mario_x[i] + real_bg_x_offset >= ((cliff_x - 4) * TILE_WIDTH) && 
+                mario_x[i] + real_bg_x_offset <= ((cliff_x - 2) * TILE_WIDTH)) begin
+                mario_on_ground <= 1'b0;
+            end else begin
+                mario_on_ground <= 1'b1;
+            end
+            if (mario_y[i] >= 480) begin
+                game_over <= 1; // 如果馬力歐不在地板上且掉出畫面，遊戲結束
+            end
+            else if ((mario_x[i] + 16 + real_bg_x_offset) >= (ghost_x * TILE_WIDTH) & mario_x[i] + real_bg_x_offset <= (ghost_x + 1) * TILE_WIDTH 
+            & (mario_y[i] + 32 >= (ghost_y) * TILE_HEIGHT) & (mario_y[i] <= (ghost_y + 1) * TILE_HEIGHT)
+            & ~game_over)
+            begin game_over <= 1; end
+            else begin
+                game_over <= game_over;
+            end 
         end
-        if (!mario_on_ground && mario_y >= 480) begin
-            game_over <= 1; // 如果馬力歐不在地板上且掉出畫面，遊戲結束
-        end
-        else if ((mario_x + 16 + real_bg_x_offset) >= (ghost_x * TILE_WIDTH) & mario_x + real_bg_x_offset <= (ghost_x + 1) * TILE_WIDTH 
-          & (mario_y + 32 >= (ghost_y) * TILE_HEIGHT) & (mario_y <= (ghost_y + 1) * TILE_HEIGHT)
-          & ~game_over)
-        begin game_over <= 1; end
-        else begin
-            game_over <= game_over;
-        end 
       up_end_osc <= up_end_osc + x / 2 + y + score;
       gap_end_osc <= gap_end_osc + y + score;
       coin_y_osc <= coin_y_osc + y + x;
