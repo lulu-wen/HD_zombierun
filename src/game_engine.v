@@ -13,7 +13,8 @@ module game_engine(
     output wire [31:0] bg_ram_data,
     output reg game_over,
     inout wire PS2_DATA,
-    inout wire PS2_CLK
+    inout wire PS2_CLK,
+    output [15:0] score
 ); 
     // Multiplexers
         reg [15:0] bam_addr [5:0];
@@ -71,7 +72,7 @@ module game_engine(
 
     // game status
     vga_num vga_num(clk, 1, score, score_addr, score_data);
-    game_over_text text(clk, game_over, text_addr, text_data);
+    // game_over_text text(clk, game_over, text_addr, text_data);
 
     integer i;
     reg clear_bg = 0;
@@ -169,8 +170,8 @@ module game_engine(
 
               bam_addr[0] <= score_addr;
               bam_data[0] <= score_data;
-              bam_addr[4] <= text_addr;
-              bam_data[4] <= text_data;
+              //bam_addr[4] <= text_addr;
+              //bam_data[4] <= text_data;
               
         if (ground_count < TILE_COLS * 3) begin
             ground_x <= ground_count % TILE_COLS;

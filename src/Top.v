@@ -1,14 +1,14 @@
-module flapga_mario
+module Top
 	(
 		input wire clk, clr,
 		input wire [15:0] sw,
-		input wire up, down, left, right, 
+		input up_button, down, left, right, 
 		output wire hsync, vsync,
 		output wire [11:0] rgb,
 		output wire [6:0] seg,
         output wire [3:0] ano,
         output wire dp,
-        output wire out,
+        output wire out, pmod_2, pmod_4,
         inout wire PS2_DATA,
         inout wire PS2_CLK
 	);
@@ -18,7 +18,8 @@ module flapga_mario
 	reg [11:0] ctrl;
 	wire bg_wea;
 	wire wlk;
-
+    wire up, up_db;
+    onepulse_Debounce up_debounce(clk, up_button, up);
 	wire [11:0] rgb_pic[0:LAYERS - 1];
 	wire layer_on[0:LAYERS - 1];
 	wire video_on, f_tick, clock_clk, walk_clk;
@@ -39,7 +40,8 @@ module flapga_mario
     wire [3:0] bg_x_offset;
     reg [9:0] cloud_x_offset;
     wire game_over;
-    parameter GAME_OVER_DELAY = 5_000; // 3 秒延遲在顯示game_over
+    wire [15:0] score;
+    parameter GAME_OVER_DELAY = 5_000;
     reg [31:0] game_over_timer = 0;
     reg game_over_display = 0; 
     
@@ -51,7 +53,7 @@ module flapga_mario
                                 .video_on(video_on), .p_tick(), .f_tick(f_tick), .x(x), .y(y));
 
         display display(.basys3_clk(clk), .seg(seg), .ano(ano), .nums(nums)); // FPGA 顯示
-        audio_output audio(clk, out);
+        audio_output audio(clk, out, pmod_2, pmod_4, up, game_over, clr, score);
             ram #(
                     .RAM_WIDTH(9), 
                     .RAM_DEPTH(1208), 
@@ -109,7 +111,7 @@ module flapga_mario
         cloud_bg cloud_bg(clk, video_on, ((x + cloud_x_offset) / 3) % 213, y / 3, rgb_pic[0]);
         background_engine bg_engine(clk, video_on, game_over, bg_x_offset, x, y, bam_data, bg_ram_addr, layer_on[1], rgb_pic[1]);
         object_engine obj_eng (clk, video_on, x, y, oam_data, oam_addr, layer_on[2], rgb_pic[2]);
-        game_engine game_eng (clk, clr, video_on, game_begin, up, down, left, right, f_tick, x, y, bg_x_offset, addr[1], addr[0], bg_wea, dina[1], dina[0], game_over, PS2_DATA, PS2_CLK);
+        game_engine game_eng (clk, clr, video_on, game_begin, up, down, left, right, f_tick, x, y, bg_x_offset, addr[1], addr[0], bg_wea, dina[1], dina[0], game_over, PS2_DATA, PS2_CLK, score);
 
         assign bam_data = game_begin ? (game_over_display ? game_over_data : bg_data) : splash_data;
         assign layer_on[0] = y > 70 && game_begin && !game_over_display;
@@ -136,7 +138,7 @@ module flapga_mario
                     rgb_reg <= rgb_pic[z_index];
             end
         end
-        always @ (posedge bg_x_offset[0]) begin
+        always @ (posedge bg_x_offset[0]) begin  // 製造比角色物件慢的位移
             if (cloud_x_offset == 639) cloud_x_offset <= 0;
             else cloud_x_offset <= cloud_x_offset + 1;
         end
