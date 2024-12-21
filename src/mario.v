@@ -3,7 +3,8 @@ module mario(
     input wire clk, reset,
     input wire up, down, left, right, 
     input wire game_over,
-    input wire mario_on_ground, // 新增判斷是否在地板
+    input wire mario_on_ground, mario_dis_enable,
+    input wire [1:0] mario_num,
     output reg [9:0] pos_x_reg,
     output reg [9:0] pos_y_reg,  // 設定地板高度為100
     output wire [31:0] dina,
@@ -15,7 +16,7 @@ module mario(
     wire [8:0] last_change;
     wire been_ready;
 
-    /*KeyboardDecoder key_de (
+    KeyboardDecoder key_de (
         .key_down(key_down),
         .last_change(last_change),
         .key_valid(been_ready),
@@ -23,7 +24,7 @@ module mario(
         .PS2_CLK(PS2_CLK),
         .rst(rst),
         .clk(clk)
-    );*/
+    );
 
     parameter [8:0] KEY_CODE_UP = 9'b0_0010_1001; // 空白鍵
     reg key_num, key_space;
@@ -46,7 +47,7 @@ module mario(
     reg [17:0] frame_counter; // 用來控制幀切換
     reg [2:0] current_frame; // 當前的顯示幀
     
-    assign dina = {5'b10000, 1'b0, pos_x_reg, pos_y_reg, rom_row, rom_col};
+    assign dina = {mario_dis_enable, 4'b0000, 1'b0, pos_x_reg, pos_y_reg, rom_row, rom_col};
     assign addr = 0;           
     
     localparam TIME_START_Y      =   100000;  
