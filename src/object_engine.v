@@ -3,8 +3,8 @@
 module object_engine #(
   parameter OAM_WIDTH = 32, 
   parameter OAM_DEPTH = 8,
-  parameter TILE_WIDTH = 16,
-  parameter TILE_HEIGHT = 32,
+  parameter TILE_WIDTH = 22, //馬力歐寬度
+  parameter TILE_HEIGHT = 32, //馬力歐寬度
   parameter OAM_CACHE_DEPTH = 8
 ) (
     input wire clk,

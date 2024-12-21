@@ -105,15 +105,17 @@ module game_engine(
         // Mario
         mario_on_ground <= 1'b1;
     end
-    reg [7:0] lfsr_cliff;
+    reg [7:0] lfsr_cliff,lfsr_ghost;
     reg cliff_refresh;
     reg [7:0] cliff_refresh_idx;
 
     always @(posedge clk or posedge reset) begin
         if (reset) begin
             lfsr_cliff <= 8'b10110101; 
+            lfsr_ghost <= 8'b10100110; 
         end else begin
             lfsr_cliff <= {lfsr_cliff[6:0], lfsr_cliff[7] ^ lfsr_cliff[5]};
+            lfsr_ghost <= {lfsr_ghost[6:0], lfsr_ghost[7] ^ lfsr_ghost[5]};
         end
     end
 
@@ -225,7 +227,8 @@ module game_engine(
          if (ghost_x > 0) begin
             ghost_x <= ghost_x - 1;
         end else begin
-            ghost_x <= TILE_COLS - 1;
+            //ghost_x <= TILE_COLS - 1;
+            ghost_x <= (lfsr_ghost % 5) + TILE_COLS + 10;
         end
         /*if (ground_x > 0) begin
             ground_x <= ground_x - 1;
