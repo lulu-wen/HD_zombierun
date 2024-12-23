@@ -291,10 +291,10 @@ module game_engine(
             bam_data[3] <= {~coin_eaten , 2'b00, 3'd7, coin_data_col};
 
             bam_addr[5] <= ghost_x + ghost_y * TILE_COLS;
-            bam_data[5] <= {1'b1, 2'b01, 3'd6, 3'd5}; // 設定鬼魂屬性和圖像：7才是鬼
+            bam_data[5] <= {ghost_x <= 39, 2'b01, 3'd6, 3'd5}; // 設定鬼魂屬性和圖像：7才是鬼
             //little mario
             bam_addr[6] <=little_x + little_y * TILE_COLS;
-            bam_data[6] <= {~little_eaten, 2'b00, 3'd5, 3'd5};
+            bam_data[6] <= {~little_eaten & little_x <= 39, 2'b00, 3'd5, 3'd5};
         end
       bg_x_offset <= (y <= 70 || game_over) ? 0 : real_bg_x_offset;
       if (scroll_counter == scroll_delay) begin
@@ -383,7 +383,7 @@ module game_engine(
             & ~game_over)
             begin 
                 little_eaten <= 1;
-                case ({mario_dead[2],mario_dead[1],mario_dead[0]})
+                /*case ({mario_dead[2],mario_dead[1],mario_dead[0]})
                     3'b001: begin
                         mario_dead[0] <= 1'b0; 
                         mario_dis_enable[0] <= 1'b1;
@@ -412,7 +412,19 @@ module game_engine(
                         mario_dead[0] <= 1'b0; 
                         mario_dis_enable[0] <= 1'b1;
                     end
-                endcase
+                endcase*/
+                if(mario_dead[0]) begin
+                    mario_dead[0] <= 0;
+                    mario_dis_enable[0] <= 1;
+                end
+                else if(mario_dead[1]) begin
+                    mario_dead[1] <= 0;
+                    mario_dis_enable[1] <= 1;
+                end
+                else begin
+                    mario_dead[2] <= 0;
+                    mario_dis_enable[2] <= 1;
+                end
             end
             else begin
                 mario_dead[i] <= mario_dead[i];
