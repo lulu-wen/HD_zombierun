@@ -6,21 +6,24 @@ module game_engine(
     input wire f_tick,
     input wire [9:0]  x, y,
     output reg [3:0] bg_x_offset,
-    output wire [7:0] obj_ram_addr,
+    output wire [7:0] mario1_ram_addr,
+    output wire [7:0] mario2_ram_addr,
+    output wire [7:0] mario3_ram_addr,
     output wire [15:0] bg_ram_addr,
     output reg bg_wea = 0,
-    output wire [31:0] obj_ram_data,
+    output wire [31:0] mario1_ram_data,
+    output wire [31:0] mario2_ram_data,
+    output wire [31:0] mario3_ram_data,
     output wire [31:0] bg_ram_data,
     output reg game_over,
     inout wire PS2_DATA,
     inout wire PS2_CLK,
-    output [15:0] score
+    output reg [15:0] score
 ); 
     // Multiplexers
         reg [15:0] bam_addr [5:0];
         reg [15:0] bam_data [5:0];
         wire  [15:0] score_addr, score_data, text_addr, text_data;
-        reg [15:0] score = 0;
         reg  [2:0] bam_select;
         reg  [15:0] bam_counter;
         reg [3:0] real_bg_x_offset;
@@ -55,15 +58,62 @@ module game_engine(
         reg [15:0] cliff_x, right_cliff_x;
 
     // Mario
-        reg mario_on_ground;
+        reg mario_on_ground [2:0];
+        reg mario_dead[2:0];
         reg [1:0] mario_num;
         wire wlk;
         wire [9:0] mario_x[2:0];
         wire [9:0] mario_y[2:0];
         reg mario_dis_enable[2:0];
-        mario mario_0(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[0]), .pos_y_reg(mario_y[0]),
-                    .game_over(game_over), .dina(obj_ram_data), .addr(obj_ram_addr), .mario_on_ground(mario_on_ground), .PS2_DATA(PS2_DATA), .PS2_CLK(PS2_CLK), .mario_dis_enable(mario_dis_enable[0]), .mario_num(mario_num));
+        reg [2:0] mario_delay_idx1, mario_delay_idx2, mario_delay_idx3;
+        mario mario_1(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[0]), .pos_y_reg(mario_y[0]),
+                    .game_over(mario_dead[0]), .dina(mario1_ram_data), .addr(mario1_ram_addr), .mario_on_ground(mario_on_ground[0]), .PS2_DATA(PS2_DATA), .PS2_CLK(PS2_CLK), .mario_dis_enable(mario_dis_enable[0]), .mario_num(mario_delay_idx1), .x_shift(0));
+        mario mario_2(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[1]), .pos_y_reg(mario_y[1]),
+                    .game_over(mario_dead[1]), .dina(mario2_ram_data), .addr(mario2_ram_addr), .mario_on_ground(mario_on_ground[1]), .PS2_DATA(PS2_DATA), .PS2_CLK(PS2_CLK), .mario_dis_enable(mario_dis_enable[1]), .mario_num(mario_delay_idx2), .x_shift(-22));
+        mario mario_3(.clk(game_on ? clk : 0), .reset(reset), .up(up), .left(left), .right(right), .down(down), .pos_x_reg(mario_x[2]), .pos_y_reg(mario_y[2]),
+                    .game_over(mario_dead[2]), .dina(mario3_ram_data), .addr(mario3_ram_addr), .mario_on_ground(mario_on_ground[2]), .PS2_DATA(PS2_DATA), .PS2_CLK(PS2_CLK), .mario_dis_enable(mario_dis_enable[2]), .mario_num(mario_delay_idx3), .x_shift(-44));
 
+        wire [2:0] mario_idx = {mario_dead[2], mario_dead[1], mario_dead[0]};
+    
+        always @(*) begin
+            case(mario_idx) 
+            3'b001: begin
+                mario_delay_idx1 = 3'd0;
+                mario_delay_idx2 = 3'd1;
+                mario_delay_idx3 = 3'd2;
+            end
+            3'b010: begin
+                mario_delay_idx1 = 3'd1;
+                mario_delay_idx2 = 3'd0;
+                mario_delay_idx3 = 3'd2;
+            end
+            3'b100: begin
+                mario_delay_idx1 = 3'd1;
+                mario_delay_idx2 = 3'd2;
+                mario_delay_idx3 = 3'd0;
+            end
+            3'b011: begin
+                mario_delay_idx1 = 3'd0;
+                mario_delay_idx2 = 3'd0;
+                mario_delay_idx3 = 3'd1;
+            end
+            3'b101: begin
+                mario_delay_idx1 = 3'd0;
+                mario_delay_idx2 = 3'd1;
+                mario_delay_idx3 = 3'd0;
+            end
+            3'b110: begin
+                mario_delay_idx1 = 3'd1;
+                mario_delay_idx2 = 3'd0;
+                mario_delay_idx3 = 3'd0;
+            end
+            3'b111: begin 
+                mario_delay_idx1 = 3'd0;
+                mario_delay_idx2 = 3'd0;
+                mario_delay_idx3 = 3'd0;
+            end
+            endcase
+        end
 
     // Ghost
     reg [15:0] ghost_x = 37;  // 初始化鬼魂位置為螢幕右側
@@ -108,21 +158,31 @@ module game_engine(
         cliff_x <= 10;
         
         // Mario
-        mario_on_ground <= 1'b1;
-        mario_num <= 2'd1;
+        mario_on_ground[0] <= 1'b1;
+        mario_on_ground[1] <= 1'b1;
+        mario_on_ground[2] <= 1'b1;
+
+        mario_num <= 2'd3;
+
         mario_dis_enable[0] <= 1'b1;
         mario_dis_enable[1] <= 1'b1;
-        mario_dis_enable[2] <= 1'b0;
+        mario_dis_enable[2] <= 1'b1;
+
+        mario_dead[0] <= 1'b0;
+        mario_dead[1] <= 1'b0;
+        mario_dead[2] <= 1'b0;
     end
-    reg [7:0] lfsr_cliff;
+    reg [7:0] lfsr_cliff,lfsr_ghost;
     reg cliff_refresh;
     reg [7:0] cliff_refresh_idx;
 
     always @(posedge clk or posedge reset) begin
         if (reset) begin
             lfsr_cliff <= 8'b10110101; 
+            lfsr_ghost <= 8'b10100110; 
         end else begin
             lfsr_cliff <= {lfsr_cliff[6:0], lfsr_cliff[7] ^ lfsr_cliff[5]};
+            lfsr_ghost <= {lfsr_ghost[6:0], lfsr_ghost[7] ^ lfsr_ghost[5]};
         end
     end
 
@@ -140,11 +200,19 @@ module game_engine(
         ground_y <= TILE_ROWS - 3;
 
         // Mario
-        mario_on_ground <= 1'b1;
-        mario_num <= 2'd1;
+        mario_on_ground[0] <= 1'b1;
+        mario_on_ground[1] <= 1'b1;
+        mario_on_ground[2] <= 1'b1;
+
+        mario_num <= 2'd3;
+
         mario_dis_enable[0] <= 1'b1;
         mario_dis_enable[1] <= 1'b1;
-        mario_dis_enable[2] <= 1'b0;
+        mario_dis_enable[2] <= 1'b1;
+
+        mario_dead[0] <= 1'b0;
+        mario_dead[1] <= 1'b0;
+        mario_dead[2] <= 1'b0;
      end
     /*
         `define TILE_COL ram_data[2:0]
@@ -238,7 +306,8 @@ module game_engine(
          if (ghost_x > 0) begin
             ghost_x <= ghost_x - 1;
         end else begin
-            ghost_x <= TILE_COLS - 1;
+            //ghost_x <= TILE_COLS - 1;
+            ghost_x <= (lfsr_ghost % 5) + TILE_COLS + 10;
         end
         /*if (ground_x > 0) begin
             ground_x <= ground_x - 1;
@@ -276,7 +345,7 @@ module game_engine(
         game_over <= 0;*/
         for(i = 0; i < mario_num; i = i + 1) begin
 
-            if ((mario_x[i] + 28 + real_bg_x_offset) >= (coin_x * TILE_WIDTH) & mario_x[i] + real_bg_x_offset < (coin_x + 1) * TILE_WIDTH 
+            if ((mario_x[i] + 16 + real_bg_x_offset) >= (coin_x * TILE_WIDTH) & mario_x[i] + real_bg_x_offset < (coin_x + 1) * TILE_WIDTH 
             & (mario_y[i] >= (coin_y - 1) * TILE_HEIGHT) & (mario_y[i] <= (coin_y + 1) * TILE_HEIGHT)
             & ~coin_eaten & ~game_over)
             begin coin_eaten <= 1; score <= score + COIN_SCORE; end
@@ -284,21 +353,29 @@ module game_engine(
             // Mario on ground (ground_x >= cliff_x - 2 && ground_x <= cliff_x - 1)
             if (mario_x[i] + real_bg_x_offset >= ((cliff_x - 4) * TILE_WIDTH) && 
                 mario_x[i] + real_bg_x_offset <= ((cliff_x - 2) * TILE_WIDTH)) begin
-                mario_on_ground <= 1'b0;
+                mario_on_ground[i] <= 1'b0;
             end else begin
-                mario_on_ground <= 1'b1;
+                mario_on_ground[i] <= 1'b1;
             end
             if (mario_y[i] >= 480) begin
-                game_over <= 1; // 如果馬力歐不在地板上且掉出畫面，遊戲結束
+                mario_dead[i] <= 1; // 如果馬力歐不在地板上且掉出畫面，遊戲結束
+                mario_dis_enable[i] <= 0;
             end
             else if ((mario_x[i] + 16 + real_bg_x_offset) >= (ghost_x * TILE_WIDTH) & mario_x[i] + real_bg_x_offset <= (ghost_x + 1) * TILE_WIDTH 
             & (mario_y[i] + 32 >= (ghost_y) * TILE_HEIGHT) & (mario_y[i] <= (ghost_y + 1) * TILE_HEIGHT)
             & ~game_over)
-            begin game_over <= 1; end
-            else begin
-                game_over <= game_over;
+            begin 
+                mario_dead[i] <= 1'b1;
+                mario_dis_enable[i] <= 0;
+            end else begin
+                mario_dead[i] <= mario_dead[i];
+                mario_dis_enable[i] <= mario_dis_enable[i];
             end 
         end
+
+        if(mario_dead[0] && mario_dead[1] && mario_dead[2]) game_over <= 1'b1;
+        else game_over <= game_over;
+
       up_end_osc <= up_end_osc + x / 2 + y + score;
       gap_end_osc <= gap_end_osc + y + score;
       coin_y_osc <= coin_y_osc + y + x;

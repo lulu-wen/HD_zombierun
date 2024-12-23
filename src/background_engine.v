@@ -5,8 +5,8 @@ module background_engine(
     input wire video_on, game_over,
     input wire [3:0] x_offset,
     input wire [9:0] x, y,
-    input wire [15:0] ram_data, // 我們要讀取的位置
-    output reg [15:0] ram_addr, // 記憶體中的資料
+    input wire [15:0] ram_data, // ??��?��?��???��?��?�置
+    output reg [15:0] ram_addr, // 記憶體中??��?��??
     output wire pixel_on,
     output wire [11:0] color
 );
