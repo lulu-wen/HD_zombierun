@@ -4,7 +4,7 @@ module mario(
     input wire up, down, left, right, 
     input wire game_over,
     input wire mario_on_ground, mario_dis_enable,
-    input wire [1:0] mario_num,
+    input wire [2:0] mario_num,
     input [9:0] x_shift,
     output reg [9:0] pos_x_reg,
     output reg [9:0] pos_y_reg,  // 設定地板高度為100
@@ -19,6 +19,7 @@ module mario(
 
     wire can_jump;
     reg [31:0] timer;
+    reg [2:0] mario_delay_idx;
     always@(posedge clk) begin
         if(up_edge) begin
             timer <= 32'd0;
@@ -26,7 +27,7 @@ module mario(
             timer <= timer + 1'b1;
         end
     end
-    assign can_jump = (timer == (32'd10_000_000 * (mario_num - 1)));
+    assign can_jump = (timer == (32'd10_000_000 * (mario_num - 1'd1)));
 
     /*KeyboardDecoder key_de (
         .key_down(key_down),
