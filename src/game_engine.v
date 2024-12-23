@@ -172,11 +172,11 @@ module game_engine(
         mario_on_ground[2] <= 1'b1;
         mario_num <= 2'd3;
         mario_dis_enable[0] <= 1'b1;
-        mario_dis_enable[1] <= 1'b1;
-        mario_dis_enable[2] <= 1'b1;
+        mario_dis_enable[1] <= 1'b0;
+        mario_dis_enable[2] <= 1'b0;
         mario_dead[0] <= 1'b0;
-        mario_dead[1] <= 1'b0;
-        mario_dead[2] <= 1'b0;
+        mario_dead[1] <= 1'b1;
+        mario_dead[2] <= 1'b1;
     end
     reg [7:0] lfsr_cliff,lfsr_ghost,lfsr_little;
     reg cliff_refresh;
@@ -217,11 +217,11 @@ module game_engine(
         mario_on_ground[2] <= 1'b1;
         mario_num <= 2'd3;
         mario_dis_enable[0] <= 1'b1;
-        mario_dis_enable[1] <= 1'b1;
-        mario_dis_enable[2] <= 1'b1;
+        mario_dis_enable[1] <= 1'b0;
+        mario_dis_enable[2] <= 1'b0;
         mario_dead[0] <= 1'b0;
-        mario_dead[1] <= 1'b0;
-        mario_dead[2] <= 1'b0;
+        mario_dead[1] <= 1'b1;
+        mario_dead[2] <= 1'b1;
         revived <= 0;
      end
     /*
@@ -329,7 +329,7 @@ module game_engine(
             little_x <= little_x - 1;
             revived <= revived;
         end else begin
-            //little_eaten <= 0;
+            little_eaten <= 0;
             little_x <= (lfsr_little % 10) + TILE_COLS;
             /*recover[0] <= 0;
             recover[1] <= 0;
