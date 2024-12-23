@@ -13,7 +13,7 @@ module Top
         inout wire PS2_CLK
 	);
 	integer z_index;
-	parameter LAYERS = 3;
+	parameter LAYERS = 5;
 	reg [11:0] rgb_reg;
 	reg [11:0] ctrl;
 	wire bg_wea;
@@ -25,15 +25,17 @@ module Top
 	wire video_on, f_tick, clock_clk, walk_clk;
 	wire [9:0] x, y;
 	wire [15:0] nums;
-	wire [38:0] dina[0:1];
+	wire [38:0] dina[0:3];
 	wire [38:0] data;
-    wire [15:0] addr[0:1];
+    wire [15:0] addr[0:3];
     wire [15:0] bg_data;
     wire [15:0] bg_ram_addr;
     wire [15:0] splash_data;
     wire [15:0] splash_addr;
-    wire [31:0] oam_data;
-    wire [2:0] oam_addr;
+    //wire [31:0] oam_data;
+    wire [31:0] mario1_data, mario2_data,mario3_data;
+    //wire [2:0] oam_addr;
+    wire [2:0] mario1_addr, mario2_addr, mario3_addr;
     wire [15:0] game_over_data;
     wire [15:0] game_over_addr;
     wire [15:0] bam_data;
@@ -98,20 +100,42 @@ module Top
             .enb(1), .rstb(0),    
             .regceb(1), .doutb(bg_data)
           );
-          
-          ram #(.RAM_WIDTH(32), .RAM_DEPTH(8), .RAM_PERFORMANCE("HIGH_PERFORMANCE"),.INIT_FILE()) oam (
-              .addra(addr[1]),
-              .addrb(oam_addr),
-              .dina(dina[1]), 
-              .clka(clk),     
-              .wea(bg_wea),    
-              .enb(1), .rstb(0),    
-              .regceb(1), .doutb(oam_data)
-            );
+        //Mario1  
+        ram #(.RAM_WIDTH(32), .RAM_DEPTH(8), .RAM_PERFORMANCE("HIGH_PERFORMANCE"),.INIT_FILE()) Mario1_ram (
+            .addra(addr[1]),
+            .addrb(mario1_addr),
+            .dina(dina[1]), 
+            .clka(clk),     
+            .wea(bg_wea),    
+            .enb(1), .rstb(0),    
+            .regceb(1), .doutb(mario1_data)
+        );
+        // Mario2
+        ram #(.RAM_WIDTH(32), .RAM_DEPTH(8), .RAM_PERFORMANCE("HIGH_PERFORMANCE"),.INIT_FILE()) Mario2_ram (
+            .addra(addr[2]),
+            .addrb(mario2_addr),
+            .dina(dina[2]), 
+            .clka(clk),     
+            .wea(bg_wea),    
+            .enb(1), .rstb(0),    
+            .regceb(1), .doutb(mario2_data)
+        );
+        // Mario3
+        ram #(.RAM_WIDTH(32), .RAM_DEPTH(8), .RAM_PERFORMANCE("HIGH_PERFORMANCE"),.INIT_FILE()) Mario3_ram (
+            .addra(addr[3]),
+            .addrb(mario3_addr),
+            .dina(dina[3]), 
+            .clka(clk),     
+            .wea(bg_wea),    
+            .enb(1), .rstb(0),    
+            .regceb(1), .doutb(mario3_data)
+        );
         cloud_bg cloud_bg(clk, video_on, ((x + cloud_x_offset) / 3) % 213, y / 3, rgb_pic[0]);
         background_engine bg_engine(clk, video_on, game_over, bg_x_offset, x, y, bam_data, bg_ram_addr, layer_on[1], rgb_pic[1]);
-        object_engine obj_eng (clk, video_on, x, y, oam_data, oam_addr, layer_on[2], rgb_pic[2]);
-        game_engine game_eng (clk, clr, video_on, game_begin, up, down, left, right, f_tick, x, y, bg_x_offset, addr[1], addr[0], bg_wea, dina[1], dina[0], game_over, PS2_DATA, PS2_CLK, score);
+        object_engine Mario1 (clk, video_on, x, y, mario1_data, mario1_addr, layer_on[2], rgb_pic[2]);
+        object_engine Mario2 (clk, video_on, x, y, mario2_data, mario2_addr, layer_on[3], rgb_pic[3]);
+        object_engine Mario3 (clk, video_on, x, y, mario3_data, mario3_addr, layer_on[4], rgb_pic[4]);
+        game_engine game_eng (clk, clr, video_on, game_begin, up, down, left, right, f_tick, x, y, bg_x_offset, addr[1], addr[2], addr[3], addr[0], bg_wea, dina[1], dina[2], dina[3], dina[0], game_over, PS2_DATA, PS2_CLK, score);
 
         assign bam_data = game_begin ? (game_over_display ? game_over_data : bg_data) : splash_data;
         assign layer_on[0] = y > 70 && game_begin && !game_over_display;
@@ -143,6 +167,6 @@ module Top
             else cloud_x_offset <= cloud_x_offset + 1;
         end
         assign dp = 1;
-        assign rgb = (video_on & (layer_on[0] | layer_on[1] | layer_on[2])) ? rgb_reg : 12'b0;
+        assign rgb = (video_on & (layer_on[0] | layer_on[1] | layer_on[2] | layer_on[3] | layer_on[4])) ? rgb_reg : 12'b0;
    
 endmodule

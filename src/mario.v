@@ -5,6 +5,7 @@ module mario(
     input wire game_over,
     input wire mario_on_ground, mario_dis_enable,
     input wire [1:0] mario_num,
+    input [9:0] x_shift,
     output reg [9:0] pos_x_reg,
     output reg [9:0] pos_y_reg,  // 設定地板高度為100
     output wire [31:0] dina,
@@ -16,7 +17,18 @@ module mario(
     wire [8:0] last_change;
     wire been_ready;
 
-    KeyboardDecoder key_de (
+    wire can_jump;
+    reg [31:0] timer;
+    always@(posedge clk) begin
+        if(up_edge) begin
+            timer <= 32'd0;
+        end else begin
+            timer <= timer + 1'b1;
+        end
+    end
+    assign can_jump = (timer == (32'd10_000_000 * (mario_num - 1)));
+
+    /*KeyboardDecoder key_de (
         .key_down(key_down),
         .last_change(last_change),
         .key_valid(been_ready),
@@ -24,7 +36,7 @@ module mario(
         .PS2_CLK(PS2_CLK),
         .rst(rst),
         .clk(clk)
-    );
+    );*/
 
     parameter [8:0] KEY_CODE_UP = 9'b0_0010_1001; // 空白鍵
     reg key_num, key_space;
@@ -84,7 +96,7 @@ module mario(
             current_frame <= running_frame_1; // 初始化顯示幀
             is_jumping <= 1'b0;
             pos_y_reg <= 400;  // 初始高度
-            pos_x_reg <= 80;
+            pos_x_reg <= 80 + x_shift;
             cool_down_reg <= 0;
         end else begin
             frame_counter <= frame_counter + 1; // 計數器增加
@@ -163,7 +175,7 @@ module mario(
         cool_down_next = cool_down_reg - 1; // 冷卻計時器遞減
         end
 
-        if(up_edge && !game_over && (pos_y_reg == 400) && !cool_down_reg) begin
+        if(can_jump && !game_over && (pos_y_reg == 400) && !cool_down_reg) begin
             state_next_y = running_frame_1;
             is_jumping <= 1'b1;             
             start_next_y = TIME_START_Y;        

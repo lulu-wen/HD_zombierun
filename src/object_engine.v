@@ -4,7 +4,7 @@ module object_engine #(
   parameter OAM_WIDTH = 32, 
   parameter OAM_DEPTH = 8,
   parameter TILE_WIDTH = 22, //馬力歐寬度
-  parameter TILE_HEIGHT = 32, //馬力歐寬度
+  parameter TILE_HEIGHT = 32, //馬力歐高度
   parameter OAM_CACHE_DEPTH = 8
 ) (
     input wire clk,
@@ -48,7 +48,7 @@ module object_engine #(
                 color_reg <= rom_data;
                 in_range[i] <= 1;
             end else in_range[i] <= 0;
-        end 
+        end
     // object evaluation
     /*    if (video_on == 0) begin
             if (evaluating) begin
