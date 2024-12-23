@@ -21,8 +21,8 @@ module game_engine(
     output reg [15:0] score
 ); 
     // Multiplexers
-        reg [15:0] bam_addr [5:0];
-        reg [15:0] bam_data [5:0];
+        reg [15:0] bam_addr [6:0];
+        reg [15:0] bam_data [6:0];
         wire  [15:0] score_addr, score_data, text_addr, text_data;
         reg  [2:0] bam_select;
         reg  [15:0] bam_counter;
@@ -119,7 +119,11 @@ module game_engine(
     reg [15:0] ghost_x = 37;  // 初始化鬼魂位置為螢幕右側
     reg [15:0] ghost_y = 26;  // 鬼魂垂直位置（可以根據需求調整）
     wire [7:0] ghost_data_col = 3;
-
+    // Increase Mario
+    reg [15:0] little_x = 37;  // 初始化鬼魂位置為螢幕右側
+    reg [15:0] little_y = 23;  // 鬼魂垂直位置（可以根據需求調整）
+    wire [7:0] little_data_col = 3;
+    reg little_eaten;
     // game status
     vga_num vga_num(clk, 1, score, score_addr, score_data);
     // game_over_text text(clk, game_over, text_addr, text_data);
@@ -161,28 +165,27 @@ module game_engine(
         mario_on_ground[0] <= 1'b1;
         mario_on_ground[1] <= 1'b1;
         mario_on_ground[2] <= 1'b1;
-
         mario_num <= 2'd3;
-
         mario_dis_enable[0] <= 1'b1;
         mario_dis_enable[1] <= 1'b1;
         mario_dis_enable[2] <= 1'b1;
-
         mario_dead[0] <= 1'b0;
         mario_dead[1] <= 1'b0;
         mario_dead[2] <= 1'b0;
     end
-    reg [7:0] lfsr_cliff,lfsr_ghost;
+    reg [7:0] lfsr_cliff,lfsr_ghost,lfsr_little;
     reg cliff_refresh;
     reg [7:0] cliff_refresh_idx;
 
     always @(posedge clk or posedge reset) begin
         if (reset) begin
             lfsr_cliff <= 8'b10110101; 
-            lfsr_ghost <= 8'b10100110; 
+            lfsr_ghost <= 8'b10100110;
+            lfsr_little <= 8'b00101110; 
         end else begin
             lfsr_cliff <= {lfsr_cliff[6:0], lfsr_cliff[7] ^ lfsr_cliff[5]};
             lfsr_ghost <= {lfsr_ghost[6:0], lfsr_ghost[7] ^ lfsr_ghost[5]};
+            lfsr_little <= {lfsr_little[6:0], lfsr_little[7] ^ lfsr_little[5]};
         end
     end
 
@@ -203,13 +206,10 @@ module game_engine(
         mario_on_ground[0] <= 1'b1;
         mario_on_ground[1] <= 1'b1;
         mario_on_ground[2] <= 1'b1;
-
         mario_num <= 2'd3;
-
         mario_dis_enable[0] <= 1'b1;
         mario_dis_enable[1] <= 1'b1;
         mario_dis_enable[2] <= 1'b1;
-
         mario_dead[0] <= 1'b0;
         mario_dead[1] <= 1'b0;
         mario_dead[2] <= 1'b0;
@@ -234,6 +234,7 @@ module game_engine(
               else if (bam_counter >= 2064 & bam_counter < 2100) begin bam_select <= 3; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else if (bam_counter >= 2100 & bam_counter < 2300) begin bam_select <= 4; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else if (bam_counter >= 2300 && bam_counter < 2500) begin bam_select <= 5; bam_counter <= bam_counter + 1; bg_wea <= 1; end
+              else if (bam_counter >= 2500 & bam_counter < 2700) begin bam_select <= 6; bam_counter <= bam_counter + 1; bg_wea <= 1; end
               else begin bam_counter <= 0; ground_count <= 0; end
 
               bam_addr[0] <= score_addr;
@@ -290,8 +291,10 @@ module game_engine(
             bam_data[3] <= {~coin_eaten , 2'b00, 3'd7, coin_data_col};
 
             bam_addr[5] <= ghost_x + ghost_y * TILE_COLS;
-            bam_data[5] <= {1'b1, 2'b01, 3'd6, 3'd5}; // 設定鬼魂屬性和圖像：7才是鬼
-
+            bam_data[5] <= {ghost_x <= 39, 2'b01, 3'd6, 3'd5}; // 設定鬼魂屬性和圖像：7才是鬼
+            //little mario
+            bam_addr[6] <=little_x + little_y * TILE_COLS;
+            bam_data[6] <= {~little_eaten & little_x <= 39, 2'b00, 3'd5, 3'd5};
         end
       bg_x_offset <= (y <= 70 || game_over) ? 0 : real_bg_x_offset;
       if (scroll_counter == scroll_delay) begin
@@ -303,11 +306,18 @@ module game_engine(
             coin_x <= 39 - coin_y_osc % 6;
             coin_y <= (coin_y_osc % 4 + 23);
         end
-         if (ghost_x > 0) begin
+        if (ghost_x > 0) begin
             ghost_x <= ghost_x - 1;
         end else begin
             //ghost_x <= TILE_COLS - 1;
             ghost_x <= (lfsr_ghost % 5) + TILE_COLS + 10;
+        end
+        if (little_x > 0) begin
+            little_x <= little_x - 1;
+        end else begin
+            //ghost_x <= TILE_COLS - 1;
+            little_eaten <= 0;
+            little_x <= (lfsr_little % 5) + TILE_COLS + 50;
         end
         /*if (ground_x > 0) begin
             ground_x <= ground_x - 1;
@@ -366,8 +376,57 @@ module game_engine(
             & ~game_over)
             begin 
                 mario_dead[i] <= 1'b1;
-                mario_dis_enable[i] <= 0;
-            end else begin
+                mario_dis_enable[i] <= 1'b0;
+            end
+            else if ((mario_x[i] + 16 + real_bg_x_offset) >= (little_x * TILE_WIDTH) & mario_x[i] + real_bg_x_offset <= (little_x + 1) * TILE_WIDTH 
+            & (mario_y[i] + 32 >= (little_y) * TILE_HEIGHT) & (mario_y[i] <= (little_y + 1) * TILE_HEIGHT)
+            & ~game_over)
+            begin 
+                little_eaten <= 1;
+                /*case ({mario_dead[2],mario_dead[1],mario_dead[0]})
+                    3'b001: begin
+                        mario_dead[0] <= 1'b0; 
+                        mario_dis_enable[0] <= 1'b1;
+                    end
+                    3'b010: begin
+                        mario_dead[1] <= 1'b0; 
+                        mario_dis_enable[1] <= 1'b1;
+                    end
+                    3'b011: begin
+                        mario_dead[0] <= 1'b0; 
+                        mario_dis_enable[0] <= 1'b1;
+                    end
+                    3'b100: begin
+                        mario_dead[2] <= 1'b0; 
+                        mario_dis_enable[2] <= 1'b1;
+                    end
+                    3'b101: begin
+                        mario_dead[0] <= 1'b0; 
+                        mario_dis_enable[0] <= 1'b1;
+                    end
+                    3'b110: begin
+                        mario_dead[1] <= 1'b0; 
+                        mario_dis_enable[1] <= 1'b1;
+                    end
+                    3'b111: begin
+                        mario_dead[0] <= 1'b0; 
+                        mario_dis_enable[0] <= 1'b1;
+                    end
+                endcase*/
+                if(mario_dead[0]) begin
+                    mario_dead[0] <= 0;
+                    mario_dis_enable[0] <= 1;
+                end
+                else if(mario_dead[1]) begin
+                    mario_dead[1] <= 0;
+                    mario_dis_enable[1] <= 1;
+                end
+                else begin
+                    mario_dead[2] <= 0;
+                    mario_dis_enable[2] <= 1;
+                end
+            end
+            else begin
                 mario_dead[i] <= mario_dead[i];
                 mario_dis_enable[i] <= mario_dis_enable[i];
             end 
